@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="header">
+  <div>
+    <h1 class="app-title">Work Tracker</h1>
+    <p class="muted">Διαχείριση Ωρών & Ταμείου</p>
+  </div>
+  <div class="user-box">
+    <span class="muted user-name">{{ current_user.username }}</span>
+    <a class="btn btn-ghost" href="{{ url_for('logout') }}">Έξοδος</a>
+  </div>
+</header>
+
+<section class="stats">
+  {% for key, title, accent in [('month', 'Τρέχων Μήνας · Άμεση Πληρωμή', 'green'),
+                                 ('total', 'Γενικό Σύνολο · Άμεση Πληρωμή', ''),
+                                 ('fund', 'Ταμείο Νοέμβρη', 'amber'),
+                                 ('avg', 'Μέση Μηνιαία Πληρωμή', '')] %}
+  <div class="card stat">
+    <div class="card-title">{{ title }}</div>
+    <div class="card-value {{ accent }}">{{ stats[key][0] }}</div>
+    <div class="card-sub">{{ stats[key][1] }}</div>
+  </div>
+  {% endfor %}
+</section>
+
+<div class="body">
+  <aside class="sidebar">
+    <!-- Φόρμα Καταχώρισης / Επεξεργασίας -->
+    <form method="post" id="entry-form" class="card{% if editing %} editing{% endif %}"
+          action="{{ url_for('save_record', rec_id=editing.id) if editing else url_for('create_record') }}">
+      <h2 class="section-title">{{ 'Επεξεργασία Καταχώρισης' if editing else 'Νέα Καταχώριση' }}</h2>
+
+      <label class="field-label" for="date">Ημερομηνία</label>
+      <input type="date" id="date" name="date" value="{{ form.date }}" required>
+
+      <span class="field-label">Τύπος</span>
+      <div class="segment">
+        <label><input type="radio" name="type" value="shift" {% if form.type == 'shift' %}checked{% endif %}><span>Βάρδια</span></label>
+        <label><input type="radio" name="type" value="transfer" {% if form.type == 'transfer' %}checked{% endif %}><span>Transfer (40 €)</span></label>
+      </div>
+
+      <div class="time-row">
+        <div>
+          <label class="field-label" for="start">Από</label>
+          <input type="time" id="start" name="start" value="{{ form.start }}">
+        </div>
+        <div>
+          <label class="field-label" for="end">Έως</label>
+          <input type="time" id="end" name="end" value="{{ form.end }}">
+        </div>
+      </div>
+
+      <div class="preview" id="preview"></div>
+
+      <div class="btn-row">
+        {% if editing %}<a class="btn" href="{{ url_for('index') }}">Ακύρωση</a>{% endif %}
+        <button type="submit" class="btn btn-primary">{{ 'Αποθήκευση' if editing else 'Προσθήκη' }}</button>
+      </div>
+    </form>
+
+    <details class="card">
+      <summary class="section-title">Μαζική Εισαγωγή</summary>
+      <form method="post" action="{{ url_for('bulk_import') }}">
+        <p class="muted">Μία εγγραφή ανά γραμμή. Γράψτε «edit» μπροστά για να αντικαταστήσετε τη βάρδια εκείνης της ημέρας.</p>
+        <textarea name="text" rows="6" placeholder="π.χ.&#10;1/5 11-19&#10;edit 10/5 9:30-16&#10;15/5 transfer"></textarea>
+        <button type="submit" class="btn btn-primary">Προσθήκη</button>
+      </form>
+    </details>
+
+    <details class="card">
+      <summary class="section-title">Εισαγωγή PDF Προγράμματος</summary>
+      <form method="post" action="{{ url_for('import_pdf') }}" enctype="multipart/form-data">
+        <input type="file" name="pdf" accept="application/pdf,.pdf" required>
+        <button type="submit" class="btn btn-primary">Εισαγωγή</button>
+      </form>
+    </details>
+  </aside>
+
+  <!-- Καταχωρίσεις -->
+  <section class="card records">
+    <div class="table-header">
+      <h2 class="section-title">Καταχωρίσεις</h2>
+      <span class="muted">{{ records|length }} εγγραφές</span>
+      <a class="btn" href="{{ url_for('export_csv') }}">Εξαγωγή CSV</a>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Ημερομηνία</th><th>Τύπος</th><th>Ωράριο</th>
+          <th class="num">Ώρες</th><th class="num">Σύνολο</th><th class="num">Άμεση Πλ.</th><th class="num">Ταμείο Νοέμβρη</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr class="{% if editing and editing.id == r.id %}selected{% endif %}">
+          <td class="c-date">{{ r.date }}</td>
+          <td class="c-type"><span class="badge {{ r.type }}">{{ 'Βάρδια' if r.type == 'shift' else 'Transfer' }}</span></td>
+          <td class="c-desc">{{ r.desc }}</td>
+          <td class="num c-hours" data-label="Ώρες">{{ r.hours }}</td>
+          <td class="num c-total" data-label="Σύνολο">{{ r.total }}</td>
+          <td class="num c-direct" data-label="Άμεση">{{ r.direct }}</td>
+          <td class="num c-fund" data-label="Ταμείο">{{ r.fund }}</td>
+          <td class="actions">
+            <a class="icon-btn" href="{{ url_for('index', edit=r.id) }}#entry-form" title="Επεξεργασία">
+              <img src="{{ url_for('static', filename='pencil.svg') }}" alt="Επεξεργασία">
+            </a>
+            <form method="post" action="{{ url_for('remove_record', rec_id=r.id) }}" class="delete-form"
+                  data-confirm="Διαγραφή της εγγραφής;&#10;&#10;{{ r.date }}  ·  {{ r.desc if r.type == 'shift' else 'Transfer' }}">
+              <button type="submit" class="icon-btn danger" title="Διαγραφή">
+                <img src="{{ url_for('static', filename='trash.svg') }}" alt="Διαγραφή">
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="muted empty">Δεν υπάρχουν εγγραφές ακόμα.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

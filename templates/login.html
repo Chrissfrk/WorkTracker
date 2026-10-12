@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="login">
+  <form method="post" class="card">
+    <h1 class="app-title">Work Tracker</h1>
+    <p class="muted">Διαχείριση Ωρών & Ταμείου</p>
+    <label class="field-label" for="username">Όνομα χρήστη</label>
+    <input type="text" id="username" name="username" value="{{ username or '' }}" required
+           autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" {% if not username %}autofocus{% endif %}>
+    <label class="field-label" for="password">Κωδικός</label>
+    <input type="password" id="password" name="password" required autocomplete="current-password" {% if username %}autofocus{% endif %}>
+    <button type="submit" class="btn btn-primary">Σύνδεση</button>
+    {% if registration_open %}
+    <p class="muted switch">Δεν έχεις λογαριασμό; <a href="{{ url_for('register') }}">Δημιουργία λογαριασμού</a></p>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

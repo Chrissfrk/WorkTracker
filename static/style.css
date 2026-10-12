@@ -1,0 +1,300 @@
+/* Θέμα — ίδια παλέτα με την παλιά εφαρμογή PyQt */
+:root {
+  --bg: #0F172A;
+  --surface: #1E293B;
+  --surface-alt: #273449;
+  --border: #334155;
+  --text: #E2E8F0;
+  --muted: #94A3B8;
+  --primary: #6366F1;
+  --primary-hover: #818CF8;
+  --green: #34D399;
+  --amber: #FBBF24;
+  --danger: #F87171;
+}
+
+* { box-sizing: border-box; }
+
+html { color-scheme: dark; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  font-size: 15px;
+  -webkit-text-size-adjust: 100%;
+}
+
+.container {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 18px 24px calc(18px + env(safe-area-inset-bottom));
+}
+
+h1, h2, p { margin: 0; }
+.app-title { font-size: 26px; font-weight: 700; }
+.section-title { font-size: 18px; font-weight: 600; }
+.muted { color: var(--muted); }
+.field-label { display: block; color: var(--muted); font-size: 13px; font-weight: 600; margin: 6px 0 -2px; }
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+/* --- Κάρτες --- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.card.editing { border: 2px solid var(--primary); }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.card-title { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.card-value { font-size: 25px; font-weight: 700; margin: 2px 0; }
+.card-value.green { color: var(--green); }
+.card-value.amber { color: var(--amber); }
+.card-sub { color: var(--muted); font-size: 12.5px; }
+
+.body {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* Τα grid items μπορούν να στενέψουν κάτω από το min-content τους */
+.stats > *, .body > * { min-width: 0; }
+
+.sidebar { display: flex; flex-direction: column; gap: 16px; }
+.sidebar form { display: flex; flex-direction: column; gap: 10px; }
+
+details summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+details summary::-webkit-details-marker { display: none; }
+details summary::after { content: "▾"; color: var(--muted); transition: transform .15s; }
+details[open] summary::after { transform: rotate(180deg); }
+details[open] summary { margin-bottom: 12px; }
+
+/* --- Πεδία --- */
+
+input[type=date], input[type=time], input[type=text], input[type=password], input[type=file], textarea {
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  min-height: 46px;
+}
+input:focus, textarea:focus { outline: none; border-color: var(--primary); }
+input:disabled { color: var(--border); }
+textarea { resize: vertical; }
+input[type=file] { padding: 10px; }
+input[type=file]::file-selector-button {
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin-right: 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.segment { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.segment input { position: absolute; opacity: 0; pointer-events: none; }
+.segment span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.segment input:checked + span { background: var(--primary); border-color: var(--primary); color: white; }
+.segment input:focus-visible + span { outline: 2px solid var(--primary-hover); }
+
+.time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.time-row > div { display: flex; flex-direction: column; gap: 10px; }
+
+.preview {
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--muted);
+  min-height: 64px;
+  white-space: pre-line;
+  margin-top: 6px;
+}
+
+/* --- Κουμπιά --- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 16px;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn:hover { background: var(--border); }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: white; min-height: 46px; }
+.btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.btn-ghost { background: transparent; }
+
+.btn-row { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; margin-top: 6px; }
+.btn-row .btn-primary:only-child { grid-column: 1 / -1; }
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+}
+.icon-btn img { width: 18px; height: 18px; }
+.icon-btn:hover { background: var(--border); }
+.icon-btn.danger:hover { background: #3B1D27; }
+
+/* --- Μηνύματα --- */
+
+.flash {
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  white-space: pre-line;
+  border: 1px solid;
+}
+.flash-success { background: #0F2E2A; border-color: #065F46; color: var(--green); }
+.flash-error { background: #3B1D27; border-color: #7F1D1D; color: var(--danger); }
+
+/* --- Πίνακας --- */
+
+.records { padding: 18px 0 8px; overflow: hidden; }
+.table-header { display: flex; align-items: center; gap: 10px; padding: 0 20px 12px; }
+.table-header .btn { margin-left: auto; }
+
+table { width: 100%; border-collapse: collapse; }
+th {
+  color: var(--muted);
+  font-weight: 600;
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+td { padding: 6px 10px; border-bottom: 1px solid var(--border); height: 48px; white-space: nowrap; }
+th:first-child, td:first-child { padding-left: 20px; }
+th:last-child, td:last-child { padding-right: 20px; }
+.num { text-align: right; }
+.c-total { font-weight: 700; }
+tr.selected td { background: #312E81; }
+.empty { text-align: center; padding: 30px; }
+
+.badge { font-weight: 700; }
+.badge.shift { color: var(--primary-hover); }
+.badge.transfer { color: var(--amber); }
+
+.actions { width: 96px; text-align: center; }
+.actions form { display: inline; }
+
+/* --- Login --- */
+
+.login { min-height: 80vh; display: flex; align-items: center; justify-content: center; }
+.login form { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 10px; }
+.login .muted { margin-bottom: 10px; }
+.login .switch { margin: 6px 0 0; text-align: center; font-size: 14px; }
+.login a { color: var(--primary-hover); }
+
+.user-box { display: flex; align-items: center; gap: 12px; }
+.user-name { font-weight: 600; }
+
+/* --- Tablet --- */
+
+@media (max-width: 1100px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .body { grid-template-columns: 1fr; }
+}
+
+/* --- Κινητό: οι γραμμές του πίνακα γίνονται κάρτες --- */
+
+@media (max-width: 768px) {
+  .container { padding: 14px 12px calc(14px + env(safe-area-inset-bottom)); }
+  .app-title { font-size: 22px; }
+  .stats { gap: 10px; }
+  .card { padding: 14px 16px; }
+  .card-value { font-size: 20px; }
+  .card-title, .card-sub { font-size: 11.5px; }
+  .body { gap: 14px; }
+  .sidebar { gap: 14px; }
+
+  /* Αποφυγή αυτόματου zoom στο iOS */
+  input, textarea { font-size: 16px; }
+
+  .records { padding: 14px 0 4px; }
+  .table-header { padding: 0 16px 10px; flex-wrap: wrap; }
+
+  table, tbody { display: block; }
+  thead { display: none; }
+  tbody tr {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr) auto;
+    grid-template-areas:
+      "date  date  date   date actions"
+      "type  desc  desc   desc actions"
+      "hours total direct fund fund";
+    gap: 4px 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr.selected { background: #312E81; }
+  tbody td, tbody td:first-child, tbody td:last-child {
+    border: none; height: auto; padding: 0; background: none; white-space: normal;
+  }
+  .c-date { grid-area: date; font-weight: 600; }
+  .c-type { grid-area: type; }
+  .c-desc { grid-area: desc; color: var(--muted); }
+  .c-hours { grid-area: hours; }
+  .c-total { grid-area: total; }
+  .c-direct { grid-area: direct; }
+  .c-fund { grid-area: fund; }
+  tbody .num { text-align: left; margin-top: 6px; white-space: nowrap; }
+  tbody .num::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .actions { grid-area: actions; width: auto; display: flex; align-items: flex-start; justify-content: flex-end; gap: 2px; }
+  .icon-btn { width: 42px; height: 42px; }
+
+  tbody td.empty { display: block; grid-column: 1 / -1; padding: 30px 0; }
+}
