@@ -232,6 +232,23 @@ def parse_pdf_schedule(file):
 
     return records
 
+def merge_schedule_records(record_lists):
+    """
+    Ενώνει τις εγγραφές από πολλά PDF. Αν δύο αρχεία καλύπτουν την ίδια μέρα (επικαλυπτόμενες εβδομάδες
+    ή το ίδιο αρχείο δύο φορές), οι ίδιες βάρδιες κρατιούνται μία φορά: για κάθε (ημερομηνία, τύπος, ώρες)
+    κρατάμε τον μέγιστο αριθμό εμφανίσεων σε ένα αρχείο, όχι το άθροισμα.
+    """
+    merged = {}
+    for records in record_lists:
+        counts = {}
+        for rec in records:
+            key = (rec['date'], rec['type'], rec['desc'])
+            counts.setdefault(key, []).append(rec)
+        for key, recs in counts.items():
+            if len(recs) > len(merged.get(key, [])):
+                merged[key] = recs
+    return sorted((rec for recs in merged.values() for rec in recs), key=lambda r: r['date'])
+
 def filter_existing_records(user_id, records):
     """Αφαιρεί τις εγγραφές που υπάρχουν ήδη στη βάση (π.χ. όταν ξαναεισάγεται το ίδιο πρόγραμμα)."""
     conn = connect()

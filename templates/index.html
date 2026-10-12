@@ -71,7 +71,8 @@
     <details class="card">
       <summary class="section-title">Εισαγωγή PDF Προγράμματος</summary>
       <form method="post" action="{{ url_for('import_pdf') }}" enctype="multipart/form-data">
-        <input type="file" name="pdf" accept="application/pdf,.pdf" required>
+        <p class="muted">Μπορείτε να επιλέξετε πολλά αρχεία μαζί. Βάρδιες που υπάρχουν ήδη δεν προστίθενται ξανά.</p>
+        <input type="file" name="pdf" accept="application/pdf,.pdf" multiple required>
         <button type="submit" class="btn btn-primary">Εισαγωγή</button>
       </form>
     </details>

@@ -208,21 +208,30 @@ def bulk_import():
 
 @app.post("/import-pdf")
 def import_pdf():
-    file = request.files.get("pdf")
-    if not file or not file.filename:
+    files = [f for f in request.files.getlist("pdf") if f and f.filename]
+    if not files:
         flash("Επιλέξτε αρχείο PDF.", "error")
         return redirect(url_for("index"))
 
-    try:
-        records = core.parse_pdf_schedule(io.BytesIO(file.read()))
-    except Exception as e:
-        flash(f"Αποτυχία ανάγνωσης αρχείου: {e}", "error")
+    # Κάθε αρχείο διαβάζεται χωριστά, ώστε ένα χαλασμένο PDF να μην μπλοκάρει τα υπόλοιπα
+    record_lists, errors = [], []
+    for file in files:
+        try:
+            records = core.parse_pdf_schedule(io.BytesIO(file.read()))
+        except Exception as e:
+            errors.append(f"{file.filename}: αποτυχία ανάγνωσης ({e})")
+            continue
+        if not records:
+            errors.append(f"{file.filename}: δεν βρέθηκαν βάρδιες (ελέγξτε τη μορφή του αρχείου)")
+            continue
+        record_lists.append(records)
+
+    if errors:
+        flash("Τα παρακάτω αρχεία δεν εισήχθησαν:\n" + "\n".join(errors), "error")
+    if not record_lists:
         return redirect(url_for("index"))
 
-    if not records:
-        flash("Δεν βρέθηκαν βάρδιες στο PDF (ελέγξτε τη μορφή του αρχείου).", "error")
-        return redirect(url_for("index"))
-
+    records = core.merge_schedule_records(record_lists)
     new_records = core.filter_existing_records(g.user["id"], records)
     skipped = len(records) - len(new_records)
     if new_records:
@@ -230,7 +239,8 @@ def import_pdf():
 
     shifts = sum(1 for r in new_records if r['type'] == 'shift')
     transfers = len(new_records) - shifts
-    msg = f"Προστέθηκαν {len(new_records)} εγγραφές από το PDF ({shifts} βάρδιες, {transfers} transfer)."
+    source = "το PDF" if len(record_lists) == 1 else f"{len(record_lists)} PDF"
+    msg = f"Προστέθηκαν {len(new_records)} εγγραφές από {source} ({shifts} βάρδιες, {transfers} transfer)."
     if skipped:
         msg += f"\nΠαραλείφθηκαν {skipped} που υπήρχαν ήδη."
     flash(msg, "success")
