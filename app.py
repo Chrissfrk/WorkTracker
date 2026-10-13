@@ -149,8 +149,14 @@ def index():
             "fund": f"{r['fund_eur']:.2f} €",
         })
 
-    return render_template("index.html", stats=core.get_stats(g.user["id"]), records=records,
-                           form=form, editing=editing)
+    monthly = core.get_monthly_totals(g.user["id"])
+    months = core.get_month_overview(monthly)
+    # Επιλεγμένος μήνας από το ?month=YYYY-MM (αλλιώς ο τρέχων). Το app.js αλλάζει μήνα χωρίς επαναφόρτωση.
+    month_index = next((i for i, m in enumerate(months) if m["key"] == request.args.get("month")),
+                       next(i for i, m in enumerate(months) if m["current"]))
+
+    return render_template("index.html", stats=core.get_stats(monthly), records=records,
+                           form=form, editing=editing, months=months, month_index=month_index)
 
 # --- Καταχώριση / Επεξεργασία / Διαγραφή ---
 

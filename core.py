@@ -15,6 +15,7 @@ TZ = ZoneInfo("Europe/Athens")
 
 GR_MONTHS = ["Ιανουάριος", "Φεβρουάριος", "Μάρτιος", "Απρίλιος", "Μάιος", "Ιούνιος",
              "Ιούλιος", "Αύγουστος", "Σεπτέμβριος", "Οκτώβριος", "Νοέμβριος", "Δεκέμβριος"]
+GR_MONTHS_SHORT = ["Ιαν", "Φεβ", "Μαρ", "Απρ", "Μαΐ", "Ιουν", "Ιουλ", "Αυγ", "Σεπ", "Οκτ", "Νοε", "Δεκ"]
 GR_DAYS = ["Δευ", "Τρί", "Τετ", "Πέμ", "Παρ", "Σάβ", "Κυρ"]
 
 def now_local():
@@ -330,34 +331,95 @@ def list_records(user_id):
     conn.close()
     return [dict(r) for r in rows]
 
-def get_stats(user_id):
-    now = now_local()
-    current_month = now.strftime("%Y-%m")
+def get_monthly_totals(user_id):
+    """Σύνολα ανά μήνα, μόνο για τους μήνες που έχουν εγγραφές, σε χρονολογική σειρά (ένα query για όλη τη σελίδα)."""
     conn = connect()
-    c = conn.cursor()
-    c.execute("SELECT SUM(hours), SUM(direct_eur), SUM(fund_eur) FROM records WHERE user_id=? AND date LIKE ?", (user_id, f"{current_month}%"))
-    m_hrs, m_dir, m_fnd = c.fetchone()
-    c.execute("SELECT SUM(hours), SUM(total_eur), SUM(direct_eur), SUM(fund_eur) FROM records WHERE user_id=?", (user_id,))
-    g_hrs, g_tot, g_dir, g_fnd = c.fetchone()
-    c.execute("SELECT substr(date, 1, 7) as month, SUM(direct_eur) as m_pay FROM records WHERE user_id=? GROUP BY month ORDER BY m_pay DESC", (user_id,))
-    monthly_stats = c.fetchall()
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("""SELECT substr(date, 1, 7) AS month, SUM(hours) AS hours, SUM(total_eur) AS total,
+                                  SUM(direct_eur) AS direct, SUM(fund_eur) AS fund,
+                                  SUM(type = 'shift') AS shifts, SUM(type = 'transfer') AS transfers
+                           FROM records WHERE user_id=? GROUP BY month ORDER BY month""", (user_id,)).fetchall()
     conn.close()
+    return [dict(r) for r in rows]
 
-    if monthly_stats and monthly_stats[0][1]:
-        year, month = monthly_stats[0][0].split("-")
-        best_month = f"{GR_MONTHS[int(month) - 1]} {year} ({monthly_stats[0][1]:.2f} €)"
+def get_stats(monthly):
+    """Γενικά στατιστικά από τα σύνολα του get_monthly_totals."""
+    now = now_local()
+    current = next((m for m in monthly if m['month'] == now.strftime("%Y-%m")), {})
+    g_hrs = sum(m['hours'] or 0 for m in monthly)
+    g_tot = sum(m['total'] or 0 for m in monthly)
+    g_dir = sum(m['direct'] or 0 for m in monthly)
+    g_fnd = sum(m['fund'] or 0 for m in monthly)
+
+    best = max(monthly, key=lambda m: m['direct'] or 0, default=None)
+    if best and best['direct']:
+        year, month = best['month'].split("-")
+        best_month = f"{GR_MONTHS[int(month) - 1]} {year} ({best['direct']:.2f} €)"
     else:
         best_month = "N/A"
-    avg_pay = (g_dir / len(monthly_stats)) if monthly_stats and g_dir else 0
+    avg_pay = g_dir / len(monthly) if monthly else 0
 
     return {
-        'month': (f"{m_dir or 0:.2f} €",
-                  f"{GR_MONTHS[now.month - 1]} {now.year} · Ώρες: {format_hours_to_clock(m_hrs or 0)}"),
         'total': (f"{g_dir or 0:.2f} €",
                   f"Ώρες: {format_hours_to_clock(g_hrs or 0)} · Σύνολο: {g_tot or 0:.2f} €"),
-        'fund': (f"{g_fnd or 0:.2f} €", f"Αυτόν τον μήνα: {m_fnd or 0:.2f} €"),
+        'fund': (f"{g_fnd or 0:.2f} €", f"Αυτόν τον μήνα: {current.get('fund') or 0:.2f} €"),
         'avg': (f"{avg_pay:.2f} €", f"Καλύτερος μήνας: {best_month}"),
     }
+
+def month_range(first, last):
+    """'2026-11', '2027-02' -> '2026-11', '2026-12', '2027-01', '2027-02'"""
+    year, month = map(int, first.split("-"))
+    last_year, last_month = map(int, last.split("-"))
+    while (year, month) <= (last_year, last_month):
+        yield f"{year}-{month:02d}"
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+
+def month_delta(direct, prev_direct, prev_key, key):
+    """Σύγκριση της άμεσης πληρωμής με τον προηγούμενο μήνα."""
+    diff = round(direct - prev_direct, 2)
+    trend = "up" if diff > 0 else "down" if diff < 0 else "flat"
+    text = {"up": "▲ ", "down": "▼ ", "flat": "± "}[trend] + f"{abs(diff):.2f} €"
+    if prev_direct:
+        text += f" ({diff / prev_direct * 100:+.0f}%)"
+    prev_year, prev_month = map(int, prev_key.split("-"))
+    vs = f"σε σχέση με τον {GR_MONTHS[prev_month - 1][:-1]}"  # Σεπτέμβριος -> τον Σεπτέμβριο
+    if prev_year != int(key[:4]):
+        vs += f" {prev_year}"
+    return {"trend": trend, "text": text, "vs": vs}
+
+def get_month_overview(monthly):
+    """
+    Όλοι οι μήνες από την πρώτη εγγραφή μέχρι τον τρέχοντα (ή την τελευταία εγγραφή, αν το πρόγραμμα
+    φτάνει σε επόμενο μήνα), μαζί με όσους δεν έχουν εγγραφές, ώστε η σύγκριση να γίνεται πάντα με τον
+    προηγούμενο ημερολογιακό μήνα. Οι τιμές επιστρέφονται έτοιμες για εμφάνιση (και ως JSON για το app.js).
+    """
+    by_month = {m['month']: m for m in monthly if re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", m['month'] or "")}
+    current = now_local().strftime("%Y-%m")
+    max_direct = max((m['direct'] or 0 for m in by_month.values()), default=0)
+
+    months = []
+    prev = None
+    for key in month_range(min([*by_month, current]), max([*by_month, current])):
+        data = by_month.get(key, {})
+        direct = data.get('direct') or 0
+        year, month = map(int, key.split("-"))
+        months.append({
+            'key': key,
+            'label': f"{GR_MONTHS[month - 1]} {year}",
+            'short': GR_MONTHS_SHORT[month - 1],
+            'year': year,
+            'current': key == current,
+            'height': round(direct / max_direct * 100, 1) if max_direct else 0,
+            'direct': f"{direct:.2f} €",
+            'total': f"{data.get('total') or 0:.2f} €",
+            'fund': f"{data.get('fund') or 0:.2f} €",
+            'hours': format_hours_to_clock(data.get('hours') or 0),
+            'counts': f"{data.get('shifts') or 0} · {data.get('transfers') or 0}",
+            # Ο πρώτος μήνας δεν έχει προηγούμενο για σύγκριση
+            'delta': month_delta(direct, prev[1], prev[0], key) if prev else None,
+        })
+        prev = (key, direct)
+    return months
 
 def export_rows(user_id):
     """Γραμμές για CSV, μορφοποιημένες για συμβατότητα με Excel."""

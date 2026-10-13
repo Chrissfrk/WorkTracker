@@ -54,6 +54,73 @@ if (form) {
   update();
 }
 
+// Μηνιαία έσοδα — αλλαγή μήνα επί τόπου (οι τιμές έρχονται έτοιμες από το core.get_month_overview)
+const revenue = document.getElementById("revenue");
+if (revenue) {
+  const months = JSON.parse(document.getElementById("revenue-data").textContent);
+  const select = revenue.querySelector("select");
+  const chart = revenue.querySelector(".chart");
+  const bars = [...chart.querySelectorAll(".bar")];
+  const steps = [...revenue.querySelectorAll("[data-step]")];
+  const fields = {};
+  revenue.querySelectorAll("[data-field]").forEach((el) => (fields[el.dataset.field] = el));
+  let index = months.findIndex((m) => m.key === select.value);
+
+  // Κρατά την επιλεγμένη στήλη ορατή όταν το γράφημα κυλάει οριζόντια (χωρίς να μετακινεί τη σελίδα)
+  function reveal(bar) {
+    const left = bar.offsetLeft;
+    const right = left + bar.offsetWidth;
+    if (left < chart.scrollLeft || right > chart.scrollLeft + chart.clientWidth) {
+      chart.scrollLeft = left - (chart.clientWidth - bar.offsetWidth) / 2;
+    }
+  }
+
+  function show(i) {
+    if (i < 0 || i >= months.length || i === index) return;
+    index = i;
+    const m = months[i];
+    for (const key of ["label", "direct", "total", "fund", "hours", "counts"]) fields[key].textContent = m[key];
+    fields.delta.className = `delta-change ${m.delta ? m.delta.trend : ""}`;
+    fields.delta.textContent = m.delta ? m.delta.text : "";
+    fields.vs.textContent = m.delta ? m.delta.vs : fields.vs.dataset.empty;
+    select.value = m.key;
+
+    steps.forEach((link) => {
+      const target = months[i + Number(link.dataset.step)];
+      if (target) {
+        link.href = `?month=${target.key}#revenue`;
+        link.removeAttribute("aria-disabled");
+      } else {
+        link.removeAttribute("href");
+        link.setAttribute("aria-disabled", "true");
+      }
+    });
+    bars.forEach((bar, j) => bar.setAttribute("aria-current", String(j === i)));
+    reveal(bars[i]);
+
+    // Ο μήνας μένει στη διεύθυνση, ώστε η ανανέωση της σελίδας να δείχνει τον ίδιο μήνα
+    const url = new URL(location.href);
+    if (m.current) url.searchParams.delete("month");
+    else url.searchParams.set("month", m.key);
+    history.replaceState(null, "", url);
+  }
+
+  select.addEventListener("change", () => show(months.findIndex((m) => m.key === select.value)));
+  steps.forEach((link) =>
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      show(index + Number(link.dataset.step));
+    })
+  );
+  bars.forEach((bar, j) =>
+    bar.addEventListener("click", (e) => {
+      e.preventDefault();
+      show(j);
+    })
+  );
+  reveal(bars[index]);
+}
+
 // Επιβεβαίωση πριν τη διαγραφή
 document.querySelectorAll(".delete-form").forEach((f) => {
   f.addEventListener("submit", (e) => {

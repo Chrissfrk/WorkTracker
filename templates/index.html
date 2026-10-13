@@ -11,9 +11,66 @@
   </div>
 </header>
 
+{% set m = months[month_index] %}
+{% set prev_url = url_for('index', month=months[month_index - 1].key) ~ '#revenue' if month_index > 0 else None %}
+{% set next_url = url_for('index', month=months[month_index + 1].key) ~ '#revenue' if month_index < months|length - 1 else None %}
+<!-- Μηνιαία Έσοδα: λειτουργεί και χωρίς JS (σύνδεσμοι ?month=), το app.js αλλάζει μήνα επί τόπου -->
+<section class="card revenue" id="revenue">
+  <div class="revenue-summary">
+    <div class="revenue-head">
+      <h2 class="section-title">Μηνιαία Έσοδα</h2>
+      <form method="get" action="{{ url_for('index') }}#revenue" class="month-picker">
+        <a class="btn btn-icon" data-step="-1" aria-label="Προηγούμενος μήνας"
+           {% if prev_url %}href="{{ prev_url }}"{% else %}aria-disabled="true"{% endif %}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        </a>
+        <select name="month" aria-label="Επιλογή μήνα">
+          {% for o in months|reverse %}
+          <option value="{{ o.key }}" {% if o.key == m.key %}selected{% endif %}>{{ o.label }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn">OK</button></noscript>
+        <a class="btn btn-icon" data-step="1" aria-label="Επόμενος μήνας"
+           {% if next_url %}href="{{ next_url }}"{% else %}aria-disabled="true"{% endif %}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </a>
+      </form>
+    </div>
+
+    <div aria-live="polite">
+      <div class="card-title">Άμεση Πληρωμή · <span data-field="label">{{ m.label }}</span></div>
+      <div class="card-value green revenue-value" data-field="direct">{{ m.direct }}</div>
+      <div class="delta">
+        <span class="delta-change {{ m.delta.trend if m.delta }}" data-field="delta">{{ m.delta.text if m.delta }}</span>
+        {% set no_delta = 'Δεν υπάρχει προηγούμενος μήνας για σύγκριση' %}
+        <span class="muted" data-field="vs" data-empty="{{ no_delta }}">{{ m.delta.vs if m.delta else no_delta }}</span>
+      </div>
+    </div>
+
+    <dl class="revenue-metrics">
+      <div><dt>Σύνολο</dt><dd data-field="total">{{ m.total }}</dd></div>
+      <div><dt>Ταμείο Νοέμβρη</dt><dd class="amber" data-field="fund">{{ m.fund }}</dd></div>
+      <div><dt>Ώρες</dt><dd data-field="hours">{{ m.hours }}</dd></div>
+      <div><dt>Βάρδιες · Transfer</dt><dd data-field="counts">{{ m.counts }}</dd></div>
+    </dl>
+  </div>
+
+  <!-- Άμεση πληρωμή ανά μήνα· κάθε στήλη επιλέγει τον μήνα της -->
+  <div class="chart" aria-label="Άμεση πληρωμή ανά μήνα">
+    {% for o in months %}
+    <a class="bar{% if o.current %} is-current{% endif %}" href="{{ url_for('index', month=o.key) }}#revenue"
+       tabindex="-1" title="{{ o.label }} · {{ o.direct }}" aria-label="{{ o.label }}: {{ o.direct }}"
+       aria-current="{{ 'true' if loop.index0 == month_index else 'false' }}">
+      <span class="bar-track"><span class="bar-fill" style="--h: {{ o.height }}%"></span></span>
+      <span class="bar-label">{{ o.short }}<small>{{ o.year if loop.first or o.key.endswith('-01') else '' }}</small></span>
+    </a>
+    {% endfor %}
+  </div>
+  <script type="application/json" id="revenue-data">{{ months|tojson }}</script>
+</section>
+
 <section class="stats">
-  {% for key, title, accent in [('month', 'Τρέχων Μήνας · Άμεση Πληρωμή', 'green'),
-                                 ('total', 'Γενικό Σύνολο · Άμεση Πληρωμή', ''),
+  {% for key, title, accent in [('total', 'Γενικό Σύνολο · Άμεση Πληρωμή', ''),
                                  ('fund', 'Ταμείο Νοέμβρη', 'amber'),
                                  ('avg', 'Μέση Μηνιαία Πληρωμή', '')] %}
   <div class="card stat">
@@ -95,7 +152,7 @@
       </thead>
       <tbody>
         {% for r in records %}
-        <tr class="{% if editing and editing.id == r.id %}selected{% endif %}">
+        <tr class="rec-{{ r.type }}{% if editing and editing.id == r.id %} selected{% endif %}">
           <td class="c-date">{{ r.date }}</td>
           <td class="c-type"><span class="badge {{ r.type }}">{{ 'Βάρδια' if r.type == 'shift' else 'Transfer' }}</span></td>
           <td class="c-desc">{{ r.desc }}</td>
