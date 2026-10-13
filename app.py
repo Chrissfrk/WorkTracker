@@ -37,7 +37,7 @@ def invite_code():
     return core.registration_state()["code"]
 
 USERNAME_RE = re.compile(r"^[\w.-]{3,30}$")
-MIN_PASSWORD = 6
+MIN_PASSWORD = 8  # Για νέους κωδικούς· όσοι υπάρχουν ήδη συνεχίζουν να ισχύουν
 
 core.init_db()
 app.register_blueprint(admin_bp)  # Διαχείριση (/admin), μόνο για διαχειριστές
@@ -57,6 +57,9 @@ def load_user():
     # Η αρχική (index) δείχνει την παρουσίαση της εφαρμογής σε όσους δεν έχουν συνδεθεί
     if g.user is None and request.endpoint not in ("login", "register", "static", "home", "index"):
         return redirect(url_for("login"))
+    # Μετά από προσωρινό κωδικό του διαχειριστή, ο χρήστης ορίζει δικό του πριν συνεχίσει
+    if g.user and g.user["must_change_password"] and request.endpoint not in ("change_password", "logout", "static"):
+        return redirect(url_for("change_password"))
 
 # Προστασία CSRF: κάθε φόρμα POST στέλνει το token της συνεδρίας
 def csrf_token():
@@ -93,23 +96,40 @@ def start_session(user):
     session.permanent = True
     session["user_id"] = user["id"]
     session["epoch"] = user["session_epoch"]
-    core.touch_login(user["id"])
+
+def client_ip():
+    # Στο PythonAnywhere ο load balancer βάζει την πραγματική διεύθυνση στο X-Real-IP
+    return request.headers.get("X-Real-IP") or request.remote_addr or ""
+
+def too_many_attempts(wait, template, **context):
+    """Απάντηση όταν έχει ενεργοποιηθεί το όριο αποτυχημένων προσπαθειών (ο κωδικός δεν ελέγχεται καν)."""
+    minutes = -(-wait // 60)
+    flash(f"Πολλές αποτυχημένες προσπάθειες. Δοκιμάστε ξανά σε {minutes} "
+          f"{'λεπτό' if minutes == 1 else 'λεπτά'}.", "error")
+    return render_template(template, **context), 429
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
+        wait = core.login_wait(client_ip(), username)
+        if wait:
+            return too_many_attempts(wait, "login.html", username=username)
         user = core.get_user_by_name(username)
         if user and check_password_hash(user["password_hash"], request.form.get("password", "")):
             if user["disabled"]:
                 flash("Ο λογαριασμός έχει απενεργοποιηθεί. Επικοινωνήστε με τον διαχειριστή.", "error")
                 return render_template("login.html", username=username)
+            core.clear_login_failures(username)
             start_session(user)
+            core.touch_login(user["id"])
             core.log_activity("login", user)
-            return redirect(url_for("index"))
+            return redirect(url_for("change_password" if user["must_change_password"] else "index"))
         # Το όνομα καταγράφεται μόνο αν υπάρχει (ώστε να μην κρατηθεί κωδικός γραμμένος κατά λάθος στο πεδίο)
-        core.log_activity("login_failed", target=user["username"] if user else None,
-                          detail=None if user else "Άγνωστο όνομα χρήστη")
+        target = user["username"] if user else None
+        core.log_activity("login_failed", target=target, detail=None if user else "Άγνωστο όνομα χρήστη")
+        if core.record_login_failure(client_ip(), username):
+            core.log_activity("login_locked", target=target, detail="Προσωρινή παύση συνδέσεων για 15 λεπτά")
         flash("Λάθος όνομα χρήστη ή κωδικός.", "error")
         return render_template("login.html", username=username)
     return render_template("login.html")
@@ -124,9 +144,15 @@ def register():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
+        # Το ίδιο όριο ανά IP ισχύει και για λάθος κωδικούς πρόσκλησης (ώστε να μη μαντεύονται)
+        wait = core.login_wait(client_ip())
+        if wait:
+            return too_many_attempts(wait, "register.html", username=username)
         error = None
         if not hmac.compare_digest(request.form.get("invite", "").strip().encode(), code.encode()):
             error = "Λάθος κωδικός πρόσκλησης."
+            if core.record_login_failure(client_ip()):
+                core.log_activity("login_locked", detail="Πολλοί λάθος κωδικοί πρόσκλησης")
         elif not USERNAME_RE.match(username):
             error = "Το όνομα χρήστη πρέπει να έχει 3-30 χαρακτήρες (γράμματα, αριθμοί, . _ -)."
         elif len(password) < MIN_PASSWORD:
@@ -140,12 +166,47 @@ def register():
             else:
                 user = core.get_user(user_id)
                 start_session(user)
+                core.touch_login(user_id)
                 core.log_activity("register", user)
                 flash(f"Καλώς ήρθες, {username}!", "success")
                 return redirect(url_for("index"))
         flash(error, "error")
         return render_template("register.html", username=username)
     return render_template("register.html")
+
+@app.route("/account/password", methods=["GET", "POST"])
+def change_password():
+    """Αλλαγή κωδικού από τον ίδιο τον χρήστη (και υποχρεωτικά μετά από προσωρινό κωδικό)."""
+    user = g.user
+    forced = bool(user["must_change_password"])
+    if request.method == "POST":
+        # Λάθος τρέχων κωδικός μετράει όπως μια αποτυχημένη σύνδεση (π.χ. δανεικό, ξεκλείδωτο κινητό)
+        wait = core.login_wait(client_ip(), user["username"])
+        if wait:
+            return too_many_attempts(wait, "password.html", forced=forced)
+        current = request.form.get("current", "")
+        password = request.form.get("password", "")
+        error = None
+        if not check_password_hash(user["password_hash"], current):
+            error = "Ο προσωρινός κωδικός δεν είναι σωστός." if forced else "Ο τωρινός κωδικός δεν είναι σωστός."
+            if core.record_login_failure(client_ip(), user["username"]):
+                core.log_activity("login_locked", user, target=user["username"], detail="Λάθος κωδικός στην αλλαγή κωδικού")
+        elif len(password) < MIN_PASSWORD:
+            error = f"Ο νέος κωδικός πρέπει να έχει τουλάχιστον {MIN_PASSWORD} χαρακτήρες."
+        elif password == current:
+            error = "Ο νέος κωδικός πρέπει να είναι διαφορετικός."
+        elif password != request.form.get("confirm", ""):
+            error = "Οι κωδικοί δεν ταιριάζουν."
+        else:
+            core.set_password(user["id"], generate_password_hash(password))
+            core.clear_login_failures(user["username"])
+            # Οι άλλες συσκευές αποσυνδέονται (νέο session_epoch)· αυτή μένει συνδεδεμένη
+            start_session(core.get_user(user["id"]))
+            core.log_activity("password_changed", user)
+            flash("Ο κωδικός σας άλλαξε.", "success")
+            return redirect(url_for("index"))
+        flash(error, "error")
+    return render_template("password.html", forced=forced)
 
 @app.route("/logout")
 def logout():
@@ -168,9 +229,10 @@ def reset_password_command(username, password):
     user = core.get_user_by_name(username)
     if not user:
         raise click.ClickException(f"Δεν υπάρχει χρήστης '{username}'.")
-    core.set_password(user["id"], generate_password_hash(password))
+    core.set_password(user["id"], generate_password_hash(password), temporary=True)
+    core.clear_login_failures(user["username"])
     core.log_activity("cli.reset_password", target=user["username"])
-    click.echo(f"Ο κωδικός του '{user['username']}' άλλαξε.")
+    click.echo(f"Ο κωδικός του '{user['username']}' άλλαξε. Στην επόμενη σύνδεση θα ορίσει δικό του.")
 
 @app.cli.command("set-admin")
 @click.argument("username")

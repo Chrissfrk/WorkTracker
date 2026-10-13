@@ -64,6 +64,12 @@ Admins manage **accounts, not data**: the panel never shows anyone's shifts, hou
 - **Ρυθμίσεις:** open or close sign-ups and change or regenerate the invite code. This takes effect immediately, with no Reload needed. The value set here overrides `INVITE_CODE` in the WSGI file.
 - **Σύστημα:** Python, Flask and SQLite versions, time since restart, process memory, database size, and recent errors.
 
+### Passwords
+
+- **Changing your own password:** everyone has a **Κωδικός** button in the top bar. It asks for the current password plus a new one (at least 8 characters), and logs out the person's other devices.
+- **Forgotten password:** the login page tells people to ask the admin. Open the user in **Χρήστες** and press **Νέος προσωρινός κωδικός**, then send them the code (it's shown once). When they log in with it, they must choose their own password before they can do anything else, so you never know their real one. `flask --app app reset-password <username>` works the same way.
+- New passwords (sign-up or change) need at least 8 characters. Existing passwords keep working.
+
 ### Who is an admin
 
 For safety, admin rights can only be granted or removed from a **Bash console**, never from the website. Admin accounts can't be disabled, deleted or have their password reset from the panel.
@@ -81,9 +87,10 @@ The database gets the new columns and tables automatically the first time the up
 ```bash
 cd ~/WorkTracker && workon worktracker
 flask --app app list-users                  # who exists + how many records each has
-flask --app app reset-password <username>   # set a new password for someone who forgot theirs
+flask --app app reset-password <username>   # temporary password; they choose their own at next login
 ```
 
+- **Too many wrong passwords:** after 5 wrong passwords for an account (or 20 failed attempts from one IP address, including wrong invite codes) within 15 minutes, logins pause for 15 minutes. Waiting is enough; giving the person a new password (panel or `reset-password`) also lifts the pause straight away.
 - **Close sign-ups:** use Διαχείριση → Ρυθμίσεις, or remove the `INVITE_CODE` line from the WSGI file and press Reload.
 - **Change the invite code:** use Διαχείριση → Ρυθμίσεις, or edit the line in the WSGI file and press Reload.
 

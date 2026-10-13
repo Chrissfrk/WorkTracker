@@ -13,7 +13,8 @@
     <div class="account">
       <span class="avatar" aria-hidden="true">{{ current_user.username[:1]|upper }}</span>
       <span class="account-name">{{ current_user.username }}</span>
-      {% if current_user.is_admin %}<a class="btn btn-plain btn-sm" href="{{ url_for('admin.dashboard') }}">{{ icon('shield') }}<span class="account-admin">Διαχείριση</span></a>{% endif %}
+      {% if current_user.is_admin %}<a class="btn btn-plain btn-sm" href="{{ url_for('admin.dashboard') }}">{{ icon('shield') }}<span class="account-label">Διαχείριση</span></a>{% endif %}
+      <a class="btn btn-plain btn-sm" href="{{ url_for('change_password') }}" aria-label="Αλλαγή κωδικού">{{ icon('key') }}<span class="account-label">Κωδικός</span></a>
       <a class="btn btn-plain btn-sm" href="{{ url_for('logout') }}">Έξοδος</a>
     </div>
   </div>

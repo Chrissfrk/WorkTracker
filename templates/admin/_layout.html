@@ -18,7 +18,7 @@
       <span class="tag admin-tag">Διαχείριση</span>
     </h1>
     <div class="account">
-      <a class="btn btn-plain btn-sm" href="{{ url_for('index') }}">{{ icon('arrow-left') }}<span class="account-admin">Εφαρμογή</span></a>
+      <a class="btn btn-plain btn-sm" href="{{ url_for('index') }}">{{ icon('arrow-left') }}<span class="account-label">Εφαρμογή</span></a>
       <span class="avatar" aria-hidden="true">{{ current_user.username[:1]|upper }}</span>
       <span class="account-name">{{ current_user.username }}</span>
     </div>

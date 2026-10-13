@@ -1,5 +1,7 @@
 import os
 import re
+import time
+import hashlib
 import sqlite3
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -53,7 +55,8 @@ def init_db():
     # Διαχείριση: ρόλος, απενεργοποίηση, ακύρωση συνδέσεων (session_epoch) και τελευταία σύνδεση
     user_columns = [row[1] for row in c.execute("PRAGMA table_info(users)")]
     for name, ddl in [("is_admin", "INTEGER NOT NULL DEFAULT 0"), ("disabled", "INTEGER NOT NULL DEFAULT 0"),
-                      ("session_epoch", "INTEGER NOT NULL DEFAULT 0"), ("last_login_at", "TEXT")]:
+                      ("session_epoch", "INTEGER NOT NULL DEFAULT 0"), ("last_login_at", "TEXT"),
+                      ("must_change_password", "INTEGER NOT NULL DEFAULT 0")]:
         if name not in user_columns:
             c.execute(f"ALTER TABLE users ADD COLUMN {name} {ddl}")
     c.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
@@ -66,6 +69,9 @@ def init_db():
                     target TEXT,
                     detail TEXT
                 )''')
+    # Αποτυχημένες συνδέσεις του τελευταίου τετάρτου (κλειδιά με hash, όχι ονόματα ή IP)
+    c.execute("CREATE TABLE IF NOT EXISTS login_failures (key TEXT NOT NULL, at REAL NOT NULL)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_login_failures_key ON login_failures(key, at)")
     conn.commit()
     conn.close()
 
@@ -103,9 +109,12 @@ def get_user(user_id):
     conn.close()
     return dict(res) if res else None
 
-def set_password(user_id, password_hash):
+def set_password(user_id, password_hash, temporary=False):
+    """Νέος κωδικός· οι ανοιχτές συνδέσεις του χρήστη λήγουν (session_epoch).
+    temporary: κωδικός που όρισε διαχειριστής — ο χρήστης θα πρέπει να ορίσει δικό του στην επόμενη σύνδεση."""
     conn = connect()
-    conn.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash, user_id))
+    conn.execute("UPDATE users SET password_hash=?, must_change_password=?, session_epoch = session_epoch + 1 WHERE id=?",
+                 (password_hash, int(temporary), user_id))
     conn.commit()
     conn.close()
 
@@ -166,6 +175,59 @@ def log_activity(action, actor=None, target=None, detail=None):
                actor["username"] if actor else None, action,
                target[:200] if target else None, detail[:500] if detail else None))
     c.execute("DELETE FROM activity WHERE id <= ?", (c.lastrowid - ACTIVITY_KEEP,))
+    conn.commit()
+    conn.close()
+
+# --- Όριο αποτυχημένων συνδέσεων ---
+
+# Μετά από 5 λάθος κωδικούς σε έναν λογαριασμό (ή 20 από την ίδια διεύθυνση IP, για οποιονδήποτε
+# λογαριασμό) μέσα σε 15 λεπτά, οι συνδέσεις σταματούν μέχρι να «λήξουν» οι παλαιότερες αποτυχίες
+LOGIN_WINDOW = 15 * 60
+MAX_USER_FAILURES = 5
+MAX_IP_FAILURES = 20
+
+def _failure_key(kind, value):
+    # Αποθηκεύεται μόνο hash, ώστε ο πίνακας να μην κρατά ονόματα, IP ή κωδικό γραμμένο κατά λάθος ως όνομα
+    return kind + ":" + hashlib.sha256(value.casefold().encode()).hexdigest()[:32]
+
+def _failure_keys(ip, username):
+    keys = [(_failure_key("ip", ip), MAX_IP_FAILURES)]
+    if username:
+        keys.append((_failure_key("user", username), MAX_USER_FAILURES))
+    return keys
+
+def login_wait(ip, username=None):
+    """Δευτερόλεπτα που πρέπει να περιμένει όποιος προσπαθεί να συνδεθεί (0 = επιτρέπεται)."""
+    now = time.time()
+    conn = connect()
+    wait = 0
+    for key, limit in _failure_keys(ip, username):
+        rows = conn.execute("SELECT at FROM login_failures WHERE key=? AND at >= ? ORDER BY at DESC LIMIT ?",
+                            (key, now - LOGIN_WINDOW, limit)).fetchall()
+        if len(rows) >= limit:
+            # Ξανά επιτρέπεται όταν η παλαιότερη από τις τελευταίες «limit» αποτυχίες βγει από το παράθυρο
+            wait = max(wait, rows[-1][0] + LOGIN_WINDOW - now)
+    conn.close()
+    return max(0, int(wait) + 1) if wait else 0
+
+def record_login_failure(ip, username=None):
+    """Καταγράφει μια αποτυχία. Επιστρέφει True αν με αυτήν ενεργοποιήθηκε το όριο."""
+    now = time.time()
+    conn = connect()
+    conn.execute("DELETE FROM login_failures WHERE at < ?", (now - LOGIN_WINDOW,))
+    reached = False
+    for key, limit in _failure_keys(ip, username):
+        conn.execute("INSERT INTO login_failures (key, at) VALUES (?, ?)", (key, now))
+        count = conn.execute("SELECT COUNT(*) FROM login_failures WHERE key=?", (key,)).fetchone()[0]
+        reached = reached or count == limit
+    conn.commit()
+    conn.close()
+    return reached
+
+def clear_login_failures(username):
+    """Μετά από επιτυχή σύνδεση ή νέο κωδικό, ο λογαριασμός ξεκινά από την αρχή (η IP όχι)."""
+    conn = connect()
+    conn.execute("DELETE FROM login_failures WHERE key=?", (_failure_key("user", username),))
     conn.commit()
     conn.close()
 

@@ -27,6 +27,7 @@
 {% macro user_badges(u) -%}
 {% if u.is_admin %}<span class="badge tone-indigo">Διαχειριστής</span>{% endif %}
 {% if u.disabled %}<span class="badge tone-orange">Απενεργοποιημένος</span>{% endif %}
+{% if u.must_change_password %}<span class="badge tone-purple">Προσωρινός κωδικός</span>{% endif %}
 {%- endmacro %}
 
 {% macro avatar(name, cls='') -%}

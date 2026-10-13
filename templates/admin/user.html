@@ -43,7 +43,7 @@
     <div class="action-row">
       <div>
         <p class="headline">Νέος προσωρινός κωδικός</p>
-        <p class="footnote secondary">Δημιουργεί τυχαίο κωδικό που εμφανίζεται μία φορά. Οι ανοιχτές συνδέσεις του χρήστη κλείνουν.</p>
+        <p class="footnote secondary">Για όποιον ξέχασε τον κωδικό του. Δημιουργεί τυχαίο κωδικό που εμφανίζεται μία φορά· στην επόμενη σύνδεση ο χρήστης ορίζει δικό του.</p>
       </div>
       <form method="post" action="{{ url_for('admin.user_password', user_id=user.id) }}" class="delete-form"
             data-confirm-title="Νέος κωδικός για «{{ user.username }}»;" data-confirm-action="Δημιουργία"

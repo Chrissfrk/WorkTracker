@@ -29,6 +29,8 @@ INVITE_RE = re.compile(r"^\S{4,64}$")
 ACTIONS = {
     "login": ("Σύνδεση", "blue"),
     "login_failed": ("Αποτυχία σύνδεσης", "orange"),
+    "login_locked": ("Παύση συνδέσεων (πολλές αποτυχίες)", "red"),
+    "password_changed": ("Αλλαγή κωδικού", "purple"),
     "register": ("Νέος λογαριασμός", "green"),
     "admin.reset_password": ("Νέος προσωρινός κωδικός", "purple"),
     "admin.disable": ("Απενεργοποίηση χρήστη", "orange"),
@@ -42,7 +44,7 @@ ACTIONS = {
 }
 ACTIVITY_KINDS = {
     "": ("Όλα", None),
-    "auth": ("Συνδέσεις", "action IN ('login', 'login_failed', 'register')"),
+    "auth": ("Συνδέσεις", "action IN ('login', 'login_failed', 'login_locked', 'register', 'password_changed')"),
     "admin": ("Διαχείριση", "(action LIKE 'admin.%' OR action LIKE 'cli.%')"),
     "error": ("Σφάλματα", "action = 'error'"),
 }
@@ -157,7 +159,7 @@ def users():
     params = (like(q),)
     total = query(f"SELECT COUNT(*) FROM users u {where}", params, one=True)[0]
     p = page_info(total)
-    rows = query(f"""SELECT u.id, u.username, u.created_at, u.last_login_at, u.is_admin, u.disabled
+    rows = query(f"""SELECT u.id, u.username, u.created_at, u.last_login_at, u.is_admin, u.disabled, u.must_change_password
                      FROM users u {where} ORDER BY {USER_SORTS[sort][1]} LIMIT ? OFFSET ?""",
                  (*params, p["limit"], p["offset"]))
     return render_template("admin/users.html", section="users", users=rows, p=p, q=q, role=role, sort=sort,
@@ -166,7 +168,8 @@ def users():
 
 @bp.get("/users/<int:user_id>")
 def user_detail(user_id):
-    user = query("SELECT id, username, created_at, last_login_at, is_admin, disabled FROM users WHERE id=?",
+    user = query("""SELECT id, username, created_at, last_login_at, is_admin, disabled, must_change_password
+                    FROM users WHERE id=?""",
                  (user_id,), one=True)
     if user is None:
         abort(404)
@@ -197,11 +200,8 @@ def user_password(user_id):
     if not user:
         return redirect(url_for(".user_detail", user_id=user_id))
     password = secrets.token_urlsafe(9)
-    conn = core.connect()
-    conn.execute("UPDATE users SET password_hash=?, session_epoch = session_epoch + 1 WHERE id=?",
-                 (generate_password_hash(password), user_id))
-    conn.commit()
-    conn.close()
+    core.set_password(user_id, generate_password_hash(password), temporary=True)
+    core.clear_login_failures(user["username"])
     core.log_activity("admin.reset_password", g.user, target=user["username"])
     # Ο κωδικός εμφανίζεται μία φορά σε αυτή την απάντηση (όχι σε flash/cookie, όχι στο ημερολόγιο)
     return render_template("admin/password.html", section="users", user=user, password=password)
