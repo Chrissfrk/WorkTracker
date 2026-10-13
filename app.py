@@ -140,6 +140,7 @@ def index():
     for r in core.list_records(g.user["id"]):
         records.append({
             "id": r["id"],
+            "month": r["date"][:7],
             "date": core.format_date_display(r["date"]),
             "type": r["type"],
             "desc": "-" if r["type"] == "transfer" else r["description"],
@@ -155,7 +156,17 @@ def index():
     month_index = next((i for i, m in enumerate(months) if m["key"] == request.args.get("month")),
                        next(i for i, m in enumerate(months) if m["current"]))
 
-    return render_template("index.html", stats=core.get_stats(monthly), records=records,
+    # Οι εγγραφές εμφανίζονται ανά μήνα (είναι ήδη ταξινομημένες, νεότερες πρώτα)
+    by_key = {m["key"]: m for m in months}
+    record_groups = []
+    for rec in records:
+        if not record_groups or record_groups[-1]["key"] != rec["month"]:
+            m = by_key.get(rec["month"], {})
+            record_groups.append({"key": rec["month"], "label": m.get("label", rec["month"]),
+                                  "direct": m.get("direct"), "records": []})
+        record_groups[-1]["records"].append(rec)
+
+    return render_template("index.html", stats=core.get_stats(monthly), records=records, record_groups=record_groups,
                            form=form, editing=editing, months=months, month_index=month_index)
 
 # --- Καταχώριση / Επεξεργασία / Διαγραφή ---

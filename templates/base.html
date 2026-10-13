@@ -1,27 +1,39 @@
+{% from "_icons.html" import icon %}
 <!doctype html>
 <html lang="el">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0F172A">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#F3F3F8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111219" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Work Tracker">
-  <title>Work Tracker</title>
+  <title>{% block title %}Work Tracker{% endblock %}</title>
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="icon" href="{{ url_for('static', filename='icon.svg') }}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-180.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <main class="container">
+  {% block navbar %}{% endblock %}
+  <main class="{% block main_class %}container{% endblock %}">
     {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="notices">
       {% for category, message in messages %}
-        <div class="flash flash-{{ category }}">{{ message }}</div>
+      <div class="notice notice-{{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">
+        {{ icon('alert-circle' if category == 'error' else 'check-circle', 'icon notice-icon') }}
+        <div class="notice-text">{{ message }}</div>
+      </div>
       {% endfor %}
+    </div>
+    {% endif %}
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+  {% block dialogs %}{% endblock %}
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

@@ -1,182 +1,262 @@
 {% extends "base.html" %}
-{% block content %}
-<header class="header">
-  <div>
-    <h1 class="app-title">Work Tracker</h1>
-    <p class="muted">Διαχείριση Ωρών & Ταμείου</p>
-  </div>
-  <div class="user-box">
-    <span class="muted user-name">{{ current_user.username }}</span>
-    <a class="btn btn-ghost" href="{{ url_for('logout') }}">Έξοδος</a>
+{% from "_icons.html" import icon, chip %}
+
+{% block navbar %}
+<header class="navbar" id="navbar">
+  <div class="navbar-inner">
+    <h1 class="brand">
+      <a href="{{ url_for('index') }}">
+        <img src="{{ url_for('static', filename='icon.svg') }}" alt="" width="28" height="28">
+        <span>Work Tracker</span>
+      </a>
+    </h1>
+    <div class="account">
+      <span class="avatar" aria-hidden="true">{{ current_user.username[:1]|upper }}</span>
+      <span class="account-name">{{ current_user.username }}</span>
+      <a class="btn btn-plain btn-sm" href="{{ url_for('logout') }}">Έξοδος</a>
+    </div>
   </div>
 </header>
+{% endblock %}
 
+{% block content %}
 {% set m = months[month_index] %}
 {% set prev_url = url_for('index', month=months[month_index - 1].key) ~ '#revenue' if month_index > 0 else None %}
 {% set next_url = url_for('index', month=months[month_index + 1].key) ~ '#revenue' if month_index < months|length - 1 else None %}
+
 <!-- Μηνιαία Έσοδα: λειτουργεί και χωρίς JS (σύνδεσμοι ?month=), το app.js αλλάζει μήνα επί τόπου -->
-<section class="card revenue" id="revenue">
-  <div class="revenue-summary">
-    <div class="revenue-head">
-      <h2 class="section-title">Μηνιαία Έσοδα</h2>
-      <form method="get" action="{{ url_for('index') }}#revenue" class="month-picker">
+<section class="card overview" id="revenue" aria-labelledby="revenue-title">
+  <div class="overview-summary">
+    <div class="overview-head">
+      <div class="card-title">{{ chip('chart', 'indigo') }}<h2 class="title3" id="revenue-title">Μηνιαία Έσοδα</h2></div>
+      <form method="get" action="{{ url_for('index') }}#revenue" class="stepper">
         <a class="btn btn-icon" data-step="-1" aria-label="Προηγούμενος μήνας"
-           {% if prev_url %}href="{{ prev_url }}"{% else %}aria-disabled="true"{% endif %}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
-        </a>
+           {% if prev_url %}href="{{ prev_url }}"{% else %}aria-disabled="true"{% endif %}>{{ icon('chevron-left') }}</a>
         <select name="month" aria-label="Επιλογή μήνα">
           {% for o in months|reverse %}
           <option value="{{ o.key }}" {% if o.key == m.key %}selected{% endif %}>{{ o.label }}</option>
           {% endfor %}
         </select>
-        <noscript><button type="submit" class="btn">OK</button></noscript>
+        <noscript><button type="submit" class="btn btn-sm">OK</button></noscript>
         <a class="btn btn-icon" data-step="1" aria-label="Επόμενος μήνας"
-           {% if next_url %}href="{{ next_url }}"{% else %}aria-disabled="true"{% endif %}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-        </a>
+           {% if next_url %}href="{{ next_url }}"{% else %}aria-disabled="true"{% endif %}>{{ icon('chevron-right') }}</a>
       </form>
     </div>
 
-    <div aria-live="polite">
-      <div class="card-title">Άμεση Πληρωμή · <span data-field="label">{{ m.label }}</span></div>
-      <div class="card-value green revenue-value" data-field="direct">{{ m.direct }}</div>
-      <div class="delta">
+    <div class="overview-hero" aria-live="polite">
+      <p class="key key-direct">Άμεση Πληρωμή · <span data-field="label">{{ m.label }}</span></p>
+      <p class="hero-value" data-field="direct">{{ m.direct }}</p>
+      <p class="delta">
         <span class="delta-change {{ m.delta.trend if m.delta }}" data-field="delta">{{ m.delta.text if m.delta }}</span>
         {% set no_delta = 'Δεν υπάρχει προηγούμενος μήνας για σύγκριση' %}
-        <span class="muted" data-field="vs" data-empty="{{ no_delta }}">{{ m.delta.vs if m.delta else no_delta }}</span>
-      </div>
+        <span data-field="vs" data-empty="{{ no_delta }}">{{ m.delta.vs if m.delta else no_delta }}</span>
+      </p>
     </div>
 
-    <dl class="revenue-metrics">
-      <div><dt>Σύνολο</dt><dd data-field="total">{{ m.total }}</dd></div>
-      <div><dt>Ταμείο Νοέμβρη</dt><dd class="amber" data-field="fund">{{ m.fund }}</dd></div>
-      <div><dt>Ώρες</dt><dd data-field="hours">{{ m.hours }}</dd></div>
-      <div><dt>Βάρδιες · Transfer</dt><dd data-field="counts">{{ m.counts }}</dd></div>
+    <dl class="metrics">
+      <div><dt class="key key-total">Σύνολο</dt><dd data-field="total">{{ m.total }}</dd></div>
+      <div><dt class="key key-fund">Ταμείο Νοέμβρη</dt><dd data-field="fund">{{ m.fund }}</dd></div>
+      <div><dt class="key key-hours">Ώρες</dt><dd data-field="hours">{{ m.hours }}</dd></div>
+      <div><dt class="key key-count">Βάρδιες · Transfer</dt><dd data-field="counts">{{ m.counts }}</dd></div>
     </dl>
   </div>
 
   <!-- Άμεση πληρωμή ανά μήνα· κάθε στήλη επιλέγει τον μήνα της -->
-  <div class="chart" aria-label="Άμεση πληρωμή ανά μήνα">
-    {% for o in months %}
-    <a class="bar{% if o.current %} is-current{% endif %}" href="{{ url_for('index', month=o.key) }}#revenue"
-       tabindex="-1" title="{{ o.label }} · {{ o.direct }}" aria-label="{{ o.label }}: {{ o.direct }}"
-       aria-current="{{ 'true' if loop.index0 == month_index else 'false' }}">
-      <span class="bar-track"><span class="bar-fill" style="--h: {{ o.height }}%"></span></span>
-      <span class="bar-label">{{ o.short }}<small>{{ o.year if loop.first or o.key.endswith('-01') else '' }}</small></span>
-    </a>
-    {% endfor %}
+  <div class="chart-wrap">
+    {% if not months|selectattr('height')|list %}
+    <p class="chart-empty footnote secondary">Το γράφημα ανά μήνα εμφανίζεται μόλις προσθέσετε εγγραφές.</p>
+    {% endif %}
+    <div class="chart" aria-label="Άμεση πληρωμή ανά μήνα">
+      {% for o in months %}
+      <a class="bar{% if o.current %} is-current{% endif %}" href="{{ url_for('index', month=o.key) }}#revenue"
+         tabindex="-1" title="{{ o.label }} · {{ o.direct }}" aria-label="{{ o.label }}: {{ o.direct }}"
+         aria-current="{{ 'true' if loop.index0 == month_index else 'false' }}">
+        <span class="bar-track"><span class="bar-fill" style="--h: {{ o.height }}%"></span></span>
+        <span class="bar-label">{{ o.short }}<small>{{ o.year if loop.first or o.key.endswith('-01') else '' }}</small></span>
+      </a>
+      {% endfor %}
+    </div>
   </div>
   <script type="application/json" id="revenue-data">{{ months|tojson }}</script>
 </section>
 
-<section class="stats">
-  {% for key, title, accent in [('total', 'Γενικό Σύνολο · Άμεση Πληρωμή', ''),
-                                 ('fund', 'Ταμείο Νοέμβρη', 'amber'),
-                                 ('avg', 'Μέση Μηνιαία Πληρωμή', '')] %}
-  <div class="card stat">
-    <div class="card-title">{{ title }}</div>
-    <div class="card-value {{ accent }}">{{ stats[key][0] }}</div>
-    <div class="card-sub">{{ stats[key][1] }}</div>
+<section class="totals" aria-labelledby="totals-title">
+  <h2 class="section-label" id="totals-title">Συνολικά</h2>
+  <div class="stats">
+    {% for key, title, tone, glyph in [('total', 'Άμεση Πληρωμή', 'green', 'euro'),
+                                        ('fund', 'Ταμείο Νοέμβρη', 'orange', 'tray'),
+                                        ('avg', 'Μέση Μηνιαία Πληρωμή', 'blue', 'gauge')] %}
+    <div class="card stat tone-{{ tone }}">
+      <div class="stat-head">{{ chip(glyph, tone) }}<p class="stat-label">{{ title }}</p></div>
+      <p class="stat-value">{{ stats[key][0] }}</p>
+      <p class="stat-sub">{{ stats[key][1] }}</p>
+    </div>
+    {% endfor %}
   </div>
-  {% endfor %}
 </section>
 
-<div class="body">
+<div class="workspace">
   <aside class="sidebar">
     <!-- Φόρμα Καταχώρισης / Επεξεργασίας -->
-    <form method="post" id="entry-form" class="card{% if editing %} editing{% endif %}"
+    <form method="post" id="entry-form" class="card entry stack{% if editing %} is-editing{% endif %}"
           action="{{ url_for('save_record', rec_id=editing.id) if editing else url_for('create_record') }}">
-      <h2 class="section-title">{{ 'Επεξεργασία Καταχώρισης' if editing else 'Νέα Καταχώριση' }}</h2>
-
-      <label class="field-label" for="date">Ημερομηνία</label>
-      <input type="date" id="date" name="date" value="{{ form.date }}" required>
-
-      <span class="field-label">Τύπος</span>
-      <div class="segment">
-        <label><input type="radio" name="type" value="shift" {% if form.type == 'shift' %}checked{% endif %}><span>Βάρδια</span></label>
-        <label><input type="radio" name="type" value="transfer" {% if form.type == 'transfer' %}checked{% endif %}><span>Transfer (40 €)</span></label>
+      <div class="card-header">
+        <div class="card-title">{{ chip('pencil' if editing else 'plus', 'indigo') }}<h2 class="title3">{{ 'Επεξεργασία Καταχώρισης' if editing else 'Νέα Καταχώριση' }}</h2></div>
+        {% if editing %}<span class="tag">{{ 'Βάρδια' if editing.type == 'shift' else 'Transfer' }}</span>{% endif %}
       </div>
 
-      <div class="time-row">
-        <div>
-          <label class="field-label" for="start">Από</label>
-          <input type="time" id="start" name="start" value="{{ form.start }}">
+      <div class="field">
+        <label class="field-label" for="date">Ημερομηνία</label>
+        <input type="date" id="date" name="date" value="{{ form.date }}" required>
+      </div>
+
+      <fieldset class="field">
+        <legend class="field-label">Τύπος</legend>
+        <div class="segmented">
+          <label><input type="radio" name="type" value="shift" {% if form.type == 'shift' %}checked{% endif %}><span>Βάρδια</span></label>
+          <label><input type="radio" name="type" value="transfer" {% if form.type == 'transfer' %}checked{% endif %}><span>Transfer · 40 €</span></label>
         </div>
-        <div>
-          <label class="field-label" for="end">Έως</label>
-          <input type="time" id="end" name="end" value="{{ form.end }}">
+      </fieldset>
+
+      <div class="collapsible" id="time-fields">
+        <div class="collapsible-body">
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label" for="start">Από</label>
+              <input type="time" id="start" name="start" value="{{ form.start }}">
+            </div>
+            <div class="field">
+              <label class="field-label" for="end">Έως</label>
+              <input type="time" id="end" name="end" value="{{ form.end }}">
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="preview" id="preview"></div>
+      <output class="preview" id="preview" for="start end" aria-live="polite"></output>
 
       <div class="btn-row">
-        {% if editing %}<a class="btn" href="{{ url_for('index') }}">Ακύρωση</a>{% endif %}
+        {% if editing %}<a class="btn btn-secondary" href="{{ url_for('index') }}">Ακύρωση</a>{% endif %}
         <button type="submit" class="btn btn-primary">{{ 'Αποθήκευση' if editing else 'Προσθήκη' }}</button>
       </div>
     </form>
 
-    <details class="card">
-      <summary class="section-title">Μαζική Εισαγωγή</summary>
-      <form method="post" action="{{ url_for('bulk_import') }}">
-        <p class="muted">Μία εγγραφή ανά γραμμή. Γράψτε «edit» μπροστά για να αντικαταστήσετε τη βάρδια εκείνης της ημέρας.</p>
-        <textarea name="text" rows="6" placeholder="π.χ.&#10;1/5 11-19&#10;edit 10/5 9:30-16&#10;15/5 transfer"></textarea>
+    <details class="card disclosure">
+      <summary>
+        {{ chip('text', 'purple') }}
+        <span class="disclosure-title">
+          <span class="title3">Μαζική Εισαγωγή</span>
+          <span class="footnote secondary">Πολλές εγγραφές με κείμενο</span>
+        </span>
+        {{ icon('chevron-right', 'icon disclosure-chevron') }}
+      </summary>
+      <form method="post" action="{{ url_for('bulk_import') }}" class="disclosure-body stack">
+        <p class="footnote secondary">Μία εγγραφή ανά γραμμή. Γράψτε «edit» μπροστά για να αντικαταστήσετε τη βάρδια εκείνης της ημέρας.</p>
+        <textarea name="text" rows="6" class="mono" aria-label="Εγγραφές, μία ανά γραμμή"
+                  placeholder="π.χ.&#10;1/5 11-19&#10;edit 10/5 9:30-16&#10;15/5 transfer"></textarea>
         <button type="submit" class="btn btn-primary">Προσθήκη</button>
       </form>
     </details>
 
-    <details class="card">
-      <summary class="section-title">Εισαγωγή PDF Προγράμματος</summary>
-      <form method="post" action="{{ url_for('import_pdf') }}" enctype="multipart/form-data">
-        <p class="muted">Μπορείτε να επιλέξετε πολλά αρχεία μαζί. Βάρδιες που υπάρχουν ήδη δεν προστίθενται ξανά.</p>
-        <input type="file" name="pdf" accept="application/pdf,.pdf" multiple required>
-        <button type="submit" class="btn btn-primary">Εισαγωγή</button>
+    <details class="card disclosure">
+      <summary>
+        {{ chip('doc', 'pink') }}
+        <span class="disclosure-title">
+          <span class="title3">Εισαγωγή PDF Προγράμματος</span>
+          <span class="footnote secondary">Βάρδιες από το πρόγραμμα εργασίας</span>
+        </span>
+        {{ icon('chevron-right', 'icon disclosure-chevron') }}
+      </summary>
+      <form method="post" action="{{ url_for('import_pdf') }}" enctype="multipart/form-data" class="disclosure-body stack">
+        <p class="footnote secondary">Μπορείτε να επιλέξετε πολλά αρχεία μαζί. Βάρδιες που υπάρχουν ήδη δεν προστίθενται ξανά.</p>
+        <label class="dropzone" data-dropzone>
+          <input type="file" name="pdf" accept="application/pdf,.pdf" multiple required class="dropzone-input">
+          {{ icon('doc', 'icon dropzone-icon') }}
+          <span class="dropzone-title" data-dropzone-title>Επιλογή αρχείων PDF</span>
+          <span class="dropzone-hint footnote secondary" data-dropzone-hint>ή σύρετέ τα εδώ</span>
+        </label>
+        <button type="submit" class="btn btn-primary" data-busy-label="Εισαγωγή…">Εισαγωγή</button>
       </form>
     </details>
   </aside>
 
   <!-- Καταχωρίσεις -->
-  <section class="card records">
-    <div class="table-header">
-      <h2 class="section-title">Καταχωρίσεις</h2>
-      <span class="muted">{{ records|length }} εγγραφές</span>
-      <a class="btn" href="{{ url_for('export_csv') }}">Εξαγωγή CSV</a>
+  <section class="card records" aria-labelledby="records-title">
+    <div class="records-header">
+      <div class="card-title">
+        {{ chip('list', 'blue') }}
+        <div>
+        <h2 class="title3" id="records-title">Καταχωρίσεις</h2>
+        <p class="footnote secondary">{{ records|length }} {{ 'εγγραφή' if records|length == 1 else 'εγγραφές' }}</p>
+        </div>
+      </div>
+      {% if records %}
+      <a class="btn btn-secondary btn-sm" href="{{ url_for('export_csv') }}">{{ icon('download') }}Εξαγωγή CSV</a>
+      {% endif %}
     </div>
 
+    {% if records %}
     <table>
       <thead>
         <tr>
-          <th>Ημερομηνία</th><th>Τύπος</th><th>Ωράριο</th>
-          <th class="num">Ώρες</th><th class="num">Σύνολο</th><th class="num">Άμεση Πλ.</th><th class="num">Ταμείο Νοέμβρη</th><th></th>
+          <th scope="col">Ημερομηνία</th><th scope="col">Τύπος</th><th scope="col">Ωράριο</th>
+          <th scope="col" class="num">Ώρες</th><th scope="col" class="num">Σύνολο</th><th scope="col" class="num">Άμεση Πλ.</th>
+          <th scope="col" class="num">Ταμείο Νοέμβρη</th><th scope="col"><span class="visually-hidden">Ενέργειες</span></th>
         </tr>
       </thead>
+      {% for group in record_groups %}
       <tbody>
-        {% for r in records %}
+        <tr class="group-row">
+          <th colspan="8" scope="rowgroup">
+            <span class="group-head">
+              <span>{{ group.label }}</span>
+              <span class="group-meta">{{ group.records|length }} {{ 'εγγραφή' if group.records|length == 1 else 'εγγραφές' }}{% if group.direct %} · <span class="group-direct">Άμεση {{ group.direct }}</span>{% endif %}</span>
+            </span>
+          </th>
+        </tr>
+        {% for r in group.records %}
         <tr class="rec-{{ r.type }}{% if editing and editing.id == r.id %} selected{% endif %}">
           <td class="c-date">{{ r.date }}</td>
-          <td class="c-type"><span class="badge {{ r.type }}">{{ 'Βάρδια' if r.type == 'shift' else 'Transfer' }}</span></td>
+          <td class="c-type"><span class="type-badge {{ r.type }}">{{ 'Βάρδια' if r.type == 'shift' else 'Transfer' }}</span></td>
           <td class="c-desc">{{ r.desc }}</td>
           <td class="num c-hours" data-label="Ώρες">{{ r.hours }}</td>
           <td class="num c-total" data-label="Σύνολο">{{ r.total }}</td>
           <td class="num c-direct" data-label="Άμεση">{{ r.direct }}</td>
           <td class="num c-fund" data-label="Ταμείο">{{ r.fund }}</td>
           <td class="actions">
-            <a class="icon-btn" href="{{ url_for('index', edit=r.id) }}#entry-form" title="Επεξεργασία">
-              <img src="{{ url_for('static', filename='pencil.svg') }}" alt="Επεξεργασία">
-            </a>
+            <a class="icon-btn" href="{{ url_for('index', edit=r.id) }}#entry-form" title="Επεξεργασία" aria-label="Επεξεργασία: {{ r.date }}">{{ icon('pencil') }}</a>
             <form method="post" action="{{ url_for('remove_record', rec_id=r.id) }}" class="delete-form"
-                  data-confirm="Διαγραφή της εγγραφής;&#10;&#10;{{ r.date }}  ·  {{ r.desc if r.type == 'shift' else 'Transfer' }}">
-              <button type="submit" class="icon-btn danger" title="Διαγραφή">
-                <img src="{{ url_for('static', filename='trash.svg') }}" alt="Διαγραφή">
-              </button>
+                  data-confirm="{{ r.date }}  ·  {{ r.desc if r.type == 'shift' else 'Transfer' }}">
+              <button type="submit" class="icon-btn danger" title="Διαγραφή" aria-label="Διαγραφή: {{ r.date }}">{{ icon('trash') }}</button>
             </form>
           </td>
         </tr>
-        {% else %}
-        <tr><td colspan="8" class="muted empty">Δεν υπάρχουν εγγραφές ακόμα.</td></tr>
         {% endfor %}
       </tbody>
+      {% endfor %}
     </table>
+    {% else %}
+    <div class="empty-state">
+      <span class="empty-icon">{{ icon('calendar') }}</span>
+      <p class="headline">Δεν υπάρχουν εγγραφές ακόμα</p>
+      <p class="footnote secondary">Προσθέστε την πρώτη σας βάρδια ή εισαγάγετε το πρόγραμμα από PDF.</p>
+      <a class="btn btn-secondary btn-sm" href="#entry-form" data-focus="date">{{ icon('plus') }}Νέα Καταχώριση</a>
+    </div>
+    {% endif %}
   </section>
 </div>
+{% endblock %}
+
+{% block dialogs %}
+<dialog class="alert" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+  <form method="dialog">
+    {{ chip('trash', 'red') }}
+    <h2 class="headline" id="confirm-title">Διαγραφή εγγραφής;</h2>
+    <p class="footnote secondary" id="confirm-message"></p>
+    <div class="alert-actions">
+      <button type="submit" value="cancel" class="btn btn-secondary" autofocus>Ακύρωση</button>
+      <button type="submit" value="confirm" class="btn btn-destructive">Διαγραφή</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}

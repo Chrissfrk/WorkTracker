@@ -1,20 +1,37 @@
 {% extends "base.html" %}
+{% block title %}Νέος Λογαριασμός · Work Tracker{% endblock %}
+{% block main_class %}auth{% endblock %}
 {% block content %}
-<div class="login">
-  <form method="post" class="card">
-    <h1 class="app-title">Νέος Λογαριασμός</h1>
-    <p class="muted">Χρειάζεσαι τον κωδικό πρόσκλησης.</p>
-    <label class="field-label" for="invite">Κωδικός πρόσκλησης</label>
-    <input type="text" id="invite" name="invite" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" autofocus>
-    <label class="field-label" for="username">Όνομα χρήστη</label>
-    <input type="text" id="username" name="username" value="{{ username or '' }}" required
-           minlength="3" maxlength="30" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
-    <label class="field-label" for="password">Κωδικός</label>
-    <input type="password" id="password" name="password" required minlength="6" autocomplete="new-password">
-    <label class="field-label" for="confirm">Επιβεβαίωση κωδικού</label>
-    <input type="password" id="confirm" name="confirm" required minlength="6" autocomplete="new-password">
-    <button type="submit" class="btn btn-primary">Δημιουργία</button>
-    <p class="muted switch">Έχεις ήδη λογαριασμό; <a href="{{ url_for('login') }}">Σύνδεση</a></p>
+<div class="card auth-card">
+  <header class="auth-header">
+    <img class="auth-icon" src="{{ url_for('static', filename='icon.svg') }}" alt="" width="64" height="64">
+    <h1 class="large-title">Νέος Λογαριασμός</h1>
+    <p class="secondary">Χρειάζεσαι τον κωδικό πρόσκλησης.</p>
+  </header>
+  <form method="post" class="stack">
+    <div class="field">
+      <label class="field-label" for="invite">Κωδικός πρόσκλησης</label>
+      <input type="text" id="invite" name="invite" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" autofocus>
+    </div>
+    <div class="field">
+      <label class="field-label" for="username">Όνομα χρήστη</label>
+      <input type="text" id="username" name="username" value="{{ username or '' }}" required
+             minlength="3" maxlength="30" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"
+             aria-describedby="username-hint">
+      <p class="field-hint" id="username-hint">3–30 χαρακτήρες: γράμματα, αριθμοί, . _ -</p>
+    </div>
+    <div class="field">
+      <label class="field-label" for="password">Κωδικός</label>
+      <input type="password" id="password" name="password" required minlength="6" autocomplete="new-password"
+             aria-describedby="password-hint">
+      <p class="field-hint" id="password-hint">Τουλάχιστον 6 χαρακτήρες.</p>
+    </div>
+    <div class="field">
+      <label class="field-label" for="confirm">Επιβεβαίωση κωδικού</label>
+      <input type="password" id="confirm" name="confirm" required minlength="6" autocomplete="new-password">
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">Δημιουργία</button>
   </form>
 </div>
+<p class="auth-switch">Έχεις ήδη λογαριασμό; <a href="{{ url_for('login') }}">Σύνδεση</a></p>
 {% endblock %}
