@@ -42,7 +42,8 @@ def load_user():
         g.user = core.get_user(user_id)
         if g.user is None:
             session.clear()
-    if g.user is None and request.endpoint not in ("login", "register", "static"):
+    # Η αρχική (index) δείχνει την παρουσίαση της εφαρμογής σε όσους δεν έχουν συνδεθεί
+    if g.user is None and request.endpoint not in ("login", "register", "static", "home", "index"):
         return redirect(url_for("login"))
 
 @app.context_processor
@@ -120,10 +121,19 @@ def reset_password_command(username, password):
     core.set_password(user["id"], generate_password_hash(password))
     click.echo(f"Ο κωδικός του '{user['username']}' άλλαξε.")
 
+# --- Παρουσίαση (δημόσια) ---
+
+@app.route("/welcome")
+def home():
+    return render_template("home.html")
+
 # --- Κεντρική Σελίδα ---
 
 @app.route("/")
 def index():
+    if g.user is None:
+        return render_template("home.html")
+
     editing = None
     edit_id = request.args.get("edit", type=int)
     if edit_id is not None:

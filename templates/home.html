@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, chip %}
+
+{# Στιγμιότυπα από static/home/ (WebP). widths: διαθέσιμα πλάτη για srcset· dark: εκδοχή για σκοτεινό θέμα #}
+{% macro shot(name, alt, w, h, widths=none, sizes='100vw', dark=none, eager=false, cls='') -%}
+{%- set path = 'home/' ~ name -%}
+{%- if dark %}<picture>
+  <source media="(prefers-color-scheme: dark)" sizes="{{ sizes }}"
+          srcset="{% for wd in widths %}{{ url_for('static', filename='home/' ~ dark ~ '-' ~ wd ~ '.webp') }} {{ wd }}w{{ ', ' if not loop.last }}{% endfor %}">
+{% endif -%}
+<img class="{{ cls }}" alt="{{ alt }}" width="{{ w }}" height="{{ h }}" decoding="async"
+     {% if eager %}fetchpriority="high"{% else %}loading="lazy"{% endif %}
+     {% if widths %}src="{{ url_for('static', filename=path ~ '-' ~ widths[0] ~ '.webp') }}" sizes="{{ sizes }}"
+     srcset="{% for wd in widths %}{{ url_for('static', filename=path ~ '-' ~ wd ~ '.webp') }} {{ wd }}w{{ ', ' if not loop.last }}{% endfor %}"
+     {% else %}src="{{ url_for('static', filename=path ~ '.webp') }}"{% endif %}>
+{%- if dark %}</picture>{% endif -%}
+{%- endmacro %}
+
+{# Κύρια ενέργεια: ανάλογα με το αν είσαι συνδεδεμένος και αν οι εγγραφές είναι ανοιχτές #}
+{% macro primary_cta(cls='') -%}
+{%- if current_user -%}
+<a class="btn btn-primary {{ cls }}" href="{{ url_for('index') }}">Άνοιγμα εφαρμογής{{ icon('arrow-right') }}</a>
+{%- elif registration_open -%}
+<a class="btn btn-primary {{ cls }}" href="{{ url_for('register') }}">Δημιουργία λογαριασμού{{ icon('arrow-right') }}</a>
+{%- else -%}
+<a class="btn btn-primary {{ cls }}" href="{{ url_for('login') }}">Σύνδεση{{ icon('arrow-right') }}</a>
+{%- endif -%}
+{%- endmacro %}
+
+{% block title %}Work Tracker · Βάρδιες, transfer και Ταμείο Νοέμβρη{% endblock %}
+
+{% block head %}
+  {% set description = "Καταχώρισε βάρδιες και transfer ή φέρε το εβδομαδιαίο πρόγραμμα από PDF. Το Work Tracker υπολογίζει την άμεση πληρωμή και το Ταμείο Νοέμβρη, μήνα με μήνα." %}
+  <meta name="description" content="{{ description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="el_GR">
+  <meta property="og:title" content="Work Tracker">
+  <meta property="og:description" content="{{ description }}">
+  <meta property="og:image" content="{{ url_for('static', filename='home/dashboard-light-1440.webp', _external=True) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+  {% if request.endpoint == 'index' %}
+  <!-- Η εγκατεστημένη εφαρμογή (αρχική οθόνη) ανοίγει κατευθείαν στη Σύνδεση, όπως πριν -->
+  <script>
+    if (matchMedia("(display-mode: standalone)").matches || navigator.standalone) location.replace("{{ url_for('login') }}");
+  </script>
+  {% endif %}
+  <script>document.documentElement.classList.add("js");</script>
+{% endblock %}
+
+{% block navbar %}
+<a class="skip-link" href="#main">Μετάβαση στο περιεχόμενο</a>
+<header class="navbar site-nav" id="navbar">
+  <div class="navbar-inner">
+    <p class="brand">
+      <a href="{{ request.path }}#top" aria-label="Work Tracker, αρχή σελίδας">
+        <img src="{{ url_for('static', filename='icon.svg') }}" alt="" width="28" height="28">
+        <span>Work Tracker</span>
+      </a>
+    </p>
+
+    <nav class="site-links" aria-label="Ενότητες">
+      <a href="#how">Πώς λειτουργεί</a>
+      <a href="#features">Δυνατότητες</a>
+      <a href="#faq">Ερωτήσεις</a>
+    </nav>
+
+    <div class="site-actions">
+      {% if not current_user and registration_open %}
+      <a class="btn btn-plain btn-sm" href="{{ url_for('login') }}">Σύνδεση</a>
+      {% endif %}
+      {{ primary_cta('btn-sm') }}
+    </div>
+
+    <button type="button" class="icon-btn menu-toggle" aria-expanded="false" aria-controls="site-menu" aria-label="Μενού">
+      {{ icon('menu', 'icon icon-open') }}{{ icon('xmark', 'icon icon-close') }}
+    </button>
+  </div>
+
+  <!-- Μενού κινητού: ανοίγει κάτω από τη γραμμή, από εκεί που πατήθηκε το κουμπί -->
+  <div class="site-menu" id="site-menu">
+    <nav aria-label="Ενότητες (κινητό)">
+      <a href="#how">Πώς λειτουργεί</a>
+      <a href="#features">Δυνατότητες</a>
+      <a href="#showcase">Η εφαρμογή</a>
+      <a href="#faq">Ερωτήσεις</a>
+    </nav>
+    <div class="site-menu-actions">
+      {{ primary_cta('btn-block') }}
+      {% if not current_user and registration_open %}
+      <a class="btn btn-secondary btn-block" href="{{ url_for('login') }}">Σύνδεση</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+{% endblock %}
+
+{% block main_class %}home{% endblock %}
+
+{% block content %}
+<span id="top"></span>
+
+<!-- ===== Hero ===== -->
+<section class="hero" id="main" aria-labelledby="hero-title" tabindex="-1">
+  <div class="wrap hero-copy">
+    <p class="eyebrow hero-eyebrow">Για βάρδιες, transfer και το Ταμείο Νοέμβρη</p>
+    <h1 class="display" id="hero-title">Οι βάρδιες σου,<br><span class="ink">μετρημένες σε ευρώ.</span></h1>
+    <p class="lead">Καταχώρισε βάρδιες και transfer, ή φέρε όλη την εβδομάδα από το PDF του προγράμματος. Το Work&nbsp;Tracker υπολογίζει αμέσως τι πληρώνεσαι τώρα και τι μαζεύεται στο Ταμείο Νοέμβρη.</p>
+    <div class="cta-row">
+      {{ primary_cta('btn-lg') }}
+      <a class="btn btn-secondary btn-lg" href="#how">Δες πώς λειτουργεί</a>
+    </div>
+    <p class="cta-note footnote secondary">
+      {% if current_user %}Είσαι συνδεδεμένος ως <strong>{{ current_user.username }}</strong>.
+      {% elif registration_open %}{{ icon('lock') }}Η εγγραφή γίνεται με κωδικό πρόσκλησης.
+      {% else %}{{ icon('lock') }}Οι νέοι λογαριασμοί είναι προς το παρόν κλειστοί.{% endif %}
+    </p>
+  </div>
+
+  <div class="hero-visual">
+    <figure class="browser hero-browser">
+      <div class="browser-bar" aria-hidden="true">
+        <span class="browser-dots"><span></span><span></span><span></span></span>
+        <span class="browser-url">{{ icon('lock') }}Work Tracker</span>
+      </div>
+      {{ shot('dashboard-light', 'Η κεντρική οθόνη του Work Tracker σε υπολογιστή: Μηνιαία Έσοδα με την άμεση πληρωμή του Οκτωβρίου, σύγκριση με τον Σεπτέμβριο, γράφημα ανά μήνα και από κάτω τα Συνολικά.', 1440, 900, widths=[1440, 2880], sizes='(min-width: 1180px) 1100px, 94vw', dark='dashboard-dark', eager=true) }}
+    </figure>
+    <div class="phone hero-phone">
+      {{ shot('phone-dashboard-light', 'Η ίδια οθόνη στο κινητό: άμεση πληρωμή του μήνα, σύνολο, Ταμείο Νοέμβρη, ώρες και γράφημα.', 390, 844, widths=[780], sizes='300px', dark='phone-dashboard-dark', eager=true) }}
+    </div>
+  </div>
+</section>
+
+<!-- ===== Πρόβλημα → λύση ===== -->
+<section class="section band" id="pay" aria-labelledby="pay-title">
+  <div class="wrap split split-top">
+    <div class="stack-lg" data-reveal>
+      <p class="eyebrow tone-indigo">Ο λογαριασμός</p>
+      <h2 class="title" id="pay-title">Εσύ δουλεύεις.<br>Τις πράξεις τις κάνει αυτό.</h2>
+      <ul class="problems" role="list">
+        <li>
+          {{ chip('clock', 'blue') }}
+          <div><h3 class="headline">Κάθε μέρα άλλο ωράριο</h3>
+          <p class="secondary">06:30–14:30 σήμερα, 11:00–17:30 αύριο, κι ένα transfer ενδιάμεσα. Οι ώρες και τα λεπτά μετρούν ακριβώς, ακόμα και σε βάρδια που περνά τα μεσάνυχτα.</p></div>
+        </li>
+        <li>
+          {{ chip('tray', 'orange') }}
+          <div><h3 class="headline">Ένα μέρος πάει στο ταμείο</h3>
+          <p class="secondary">Από κάθε ποσό, το 25% κρατιέται για το Ταμείο Νοέμβρη. Βλέπεις χωριστά τι πληρώνεσαι τώρα και τι μαζεύεται για αργότερα.</p></div>
+        </li>
+        <li>
+          {{ chip('doc', 'pink') }}
+          <div><h3 class="headline">Το πρόγραμμα έρχεται σε PDF</h3>
+          <p class="secondary">Αντί να το ξαναγράφεις, το ανεβάζεις. Οι βάρδιες της εβδομάδας μπαίνουν όλες μαζί.</p></div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Ζωντανός υπολογισμός: ίδιοι κανόνες με την εφαρμογή (core.calculate_pay) -->
+    <form class="card calc" id="calc" aria-labelledby="calc-title" data-reveal>
+      <div class="card-header">
+        <div class="card-title">{{ chip('euro', 'green') }}<h3 class="title3" id="calc-title">Δοκίμασε τον υπολογισμό</h3></div>
+      </div>
+      <fieldset class="field">
+        <legend class="field-label">Τύπος</legend>
+        <div class="segmented">
+          <label><input type="radio" name="calc-type" value="shift" checked><span>Βάρδια</span></label>
+          <label><input type="radio" name="calc-type" value="transfer"><span>Transfer · 40 €</span></label>
+        </div>
+      </fieldset>
+      <div class="collapsible" id="calc-times">
+        <div class="collapsible-body">
+          <div class="field-row">
+            <div class="field"><label class="field-label" for="calc-start">Από</label><input type="time" id="calc-start" value="07:00"></div>
+            <div class="field"><label class="field-label" for="calc-end">Έως</label><input type="time" id="calc-end" value="15:30"></div>
+          </div>
+        </div>
+      </div>
+      <output class="calc-result" id="calc-result" for="calc-start calc-end" aria-live="polite">
+        <span class="calc-head"><span data-calc="label">Διάρκεια</span><strong data-calc="hours">8:30</strong></span>
+        <span class="calc-total"><span class="key key-total">Σύνολο</span><strong data-calc="total">85.00 €</strong></span>
+        <span class="calc-split" aria-hidden="true"><span class="split-direct"></span><span class="split-fund"></span></span>
+        <span class="calc-parts">
+          <span><span class="key key-direct">Άμεση πληρωμή · 75%</span><strong data-calc="direct">63.75 €</strong></span>
+          <span><span class="key key-fund">Ταμείο Νοέμβρη · 25%</span><strong data-calc="fund">21.25 €</strong></span>
+        </span>
+      </output>
+      <p class="footnote secondary calc-rules">Βάρδια: 10 € την ώρα. Transfer: σταθερά 40 €, δηλαδή 30 € άμεση πληρωμή και 10 € στο ταμείο.</p>
+    </form>
+  </div>
+</section>
+
+<!-- ===== Δυνατότητες ===== -->
+<section class="section" id="features" aria-labelledby="features-title">
+  <div class="wrap section-head" data-reveal>
+    <p class="eyebrow tone-purple">Δυνατότητες</p>
+    <h2 class="title" id="features-title">Ό,τι χρειάζεσαι για τη σεζόν.<br>Τίποτα παραπάνω.</h2>
+  </div>
+
+  <!-- Μηνιαία Έσοδα: φαρδιά προβολή -->
+  <article class="wrap feature-wide tone-green" aria-labelledby="f-month" data-reveal>
+    <div class="feature-wide-copy">
+      <div>
+        <p class="eyebrow">Μηνιαία Έσοδα</p>
+        <h3 class="title-sm" id="f-month">Ο μήνας σου, με μια ματιά.</h3>
+      </div>
+      <p class="secondary">Η άμεση πληρωμή του μήνα σε πρώτο πλάνο, με τη διαφορά από τον προηγούμενο μήνα σε ευρώ και ποσοστό. Από κάτω το σύνολο, το Ταμείο Νοέμβρη, οι ώρες και πόσες βάρδιες και transfer έκανες.</p>
+    </div>
+    <div class="stage stage-wide">
+      {{ shot('overview', 'Η κάρτα Μηνιαία Έσοδα: άμεση πληρωμή 1515.00 € τον Οκτώβριο, αύξηση 453.75 € (+43%) σε σχέση με τον Σεπτέμβριο, και γράφημα με μία στήλη για κάθε μήνα από τον Απρίλιο ως τον Οκτώβριο.', 1264, 424, widths=[1264, 2528], sizes='(min-width: 1180px) 1040px, 90vw', cls='shot') }}
+    </div>
+    <ul class="facts" role="list">
+      <li>{{ icon('calendar') }}<span>Αλλάζεις μήνα με τα βέλη, από τη λίστα ή πατώντας μια στήλη.</span></li>
+      <li>{{ icon('chart') }}<span>Μία στήλη για κάθε μήνα, ακόμα και για όσους δεν δούλεψες.</span></li>
+      <li>{{ icon('gauge') }}<span>Στα Συνολικά: όλα όσα έβγαλες, ο μέσος όρος και ο καλύτερός σου μήνας.</span></li>
+    </ul>
+  </article>
+
+  <!-- Εισαγωγή PDF -->
+  <article class="wrap feature tone-pink" id="pdf" aria-labelledby="f-pdf" data-reveal>
+    <div class="feature-copy">
+      <p class="eyebrow">Εισαγωγή PDF Προγράμματος</p>
+      <h3 class="title-sm" id="f-pdf">Όλη η εβδομάδα,<br>από ένα PDF.</h3>
+      <p class="secondary">Ανέβασε το εβδομαδιαίο πρόγραμμα εργασίας και οι βάρδιες μπαίνουν μόνες τους, με τις σωστές ώρες και ποσά.</p>
+      <ul class="checks" role="list">
+        <li>{{ icon('check') }}Πολλά αρχεία μαζί, με επιλογή ή σύρσιμο.</li>
+        <li>{{ icon('check') }}Ό,τι έχεις ήδη καταχωρίσει παραλείπεται. Δεν μετράει τίποτα διπλό.</li>
+        <li>{{ icon('check') }}Μια εργασία ακριβώς μίας ώρας καταχωρίζεται ως transfer.</li>
+      </ul>
+    </div>
+    <div class="stage stage-pdf">
+      {{ shot('pdf-import', 'Η κάρτα Εισαγωγή PDF Προγράμματος με δύο αρχεία PDF επιλεγμένα και το κουμπί Εισαγωγή.', 608, 314, cls='shot') }}
+      {{ shot('pdf-notice', 'Μήνυμα της εφαρμογής: Προστέθηκαν 6 εγγραφές από 2 PDF (5 βάρδιες, 1 transfer). Παραλείφθηκαν 7 που υπήρχαν ήδη.', 608, 72, cls='shot shot-notice') }}
+    </div>
+  </article>
+
+  <!-- Μαζική Εισαγωγή -->
+  <article class="wrap feature feature-reverse tone-purple" aria-labelledby="f-bulk" data-reveal>
+    <div class="feature-copy">
+      <p class="eyebrow">Μαζική Εισαγωγή</p>
+      <h3 class="title-sm" id="f-bulk">Γράψε τες όπως<br>τις σημειώνεις.</h3>
+      <p class="secondary">Μία εγγραφή ανά γραμμή, με ημέρα/μήνα μπροστά. Χρήσιμο για να περάσεις παλιές βάρδιες από τις σημειώσεις σου.</p>
+      <dl class="syntax">
+        <div><dt><code>1/11 07:00-15:00</code></dt><dd>Βάρδια την 1η Νοεμβρίου</dd></div>
+        <div><dt><code>2/11 6:30-14</code></dt><dd>Τα λεπτά είναι προαιρετικά</dd></div>
+        <div><dt><code>edit 3/11 9-17</code></dt><dd>Αντικαθιστά τη βάρδια εκείνης της ημέρας</dd></div>
+        <div><dt><code>4/11 2 transfer</code></dt><dd>Δύο transfer την ίδια μέρα</dd></div>
+      </dl>
+    </div>
+    <div class="stage stage-narrow">
+      {{ shot('bulk', 'Η κάρτα Μαζική Εισαγωγή με τέσσερις γραμμές κειμένου: 1/11 07:00-15:00, 2/11 6:30-14, edit 3/11 9-17, 4/11 2 transfer.', 384, 370, cls='shot') }}
+    </div>
+  </article>
+
+  <!-- Καταχωρίσεις + CSV -->
+  <article class="wrap feature tone-blue" aria-labelledby="f-records" data-reveal>
+    <div class="feature-copy">
+      <p class="eyebrow">Καταχωρίσεις</p>
+      <h3 class="title-sm" id="f-records">Κάθε εγγραφή,<br>στη θέση της.</h3>
+      <p class="secondary">Όλες οι βάρδιες και τα transfer, ομαδοποιημένα ανά μήνα, με ωράριο, ώρες, σύνολο, άμεση πληρωμή και ταμείο σε κάθε γραμμή.</p>
+      <ul class="checks" role="list">
+        <li>{{ icon('pencil') }}Διόρθωση με το μολύβι, διαγραφή με επιβεβαίωση.</li>
+        <li>{{ icon('download') }}Εξαγωγή CSV που ανοίγει σωστά στο Excel, μαζί με τα ελληνικά.</li>
+        <li>{{ icon('phone') }}Στο κινητό ο πίνακας γίνεται ευανάγνωστη λίστα.</li>
+      </ul>
+    </div>
+    <div class="stage stage-records">
+      {{ shot('records', 'Ο πίνακας Καταχωρίσεις: επικεφαλίδα Οκτώβριος 2026 με τη συνολική άμεση πληρωμή του μήνα και γραμμές με ημερομηνία, τύπο (Βάρδια ή Transfer), ωράριο, ώρες, σύνολο, άμεση πληρωμή και Ταμείο Νοέμβρη.', 856, 620, cls='shot') }}
+    </div>
+  </article>
+</section>
+
+<!-- ===== Πώς λειτουργεί ===== -->
+<section class="section band" id="how" aria-labelledby="how-title">
+  <div class="wrap section-head" data-reveal>
+    <p class="eyebrow tone-indigo">Πώς λειτουργεί</p>
+    <h2 class="title" id="how-title">Από τον λογαριασμό στην πρώτη βάρδια, σε τέσσερα βήματα.</h2>
+  </div>
+
+  <ol class="wrap steps" role="list">
+    <li class="step" data-reveal>
+      <div class="step-copy">
+        <span class="step-num" aria-hidden="true">1</span>
+        <h3 class="title-xs"><span class="visually-hidden">Βήμα 1: </span>Φτιάξε λογαριασμό</h3>
+        <p>Πάρε τον <strong>κωδικό πρόσκλησης</strong> από όποιον σου έστειλε την εφαρμογή. Πάτα «Δημιουργία λογαριασμού» και διάλεξε όνομα χρήστη (3–30 χαρακτήρες) και κωδικό (τουλάχιστον 6).</p>
+        <p class="step-next">{{ icon('arrow-right') }}<span>Μπαίνεις αμέσως στην εφαρμογή. Η λίστα σου ξεκινά άδεια και τη βλέπεις μόνο εσύ.</span></p>
+        {% if not current_user and registration_open %}<a class="text-link" href="{{ url_for('register') }}">Δημιουργία <span class="nowrap">λογαριασμού{{ icon('chevron-right') }}</span></a>{% endif %}
+      </div>
+      <figure class="step-media stage stage-narrow tone-indigo">
+        {{ shot('register', 'Η φόρμα Νέος Λογαριασμός με πεδία για κωδικό πρόσκλησης, όνομα χρήστη, κωδικό και επιβεβαίωση κωδικού.', 336, 656, cls='shot shot-tall') }}
+      </figure>
+    </li>
+
+    <li class="step" data-reveal>
+      <div class="step-copy">
+        <span class="step-num" aria-hidden="true">2</span>
+        <h3 class="title-xs"><span class="visually-hidden">Βήμα 2: </span>Πρόσθεσε μια βάρδια</h3>
+        <p>Στη <strong>Νέα Καταχώριση</strong> διάλεξε ημερομηνία, «Βάρδια» ή «Transfer», και τις ώρες. Πριν πατήσεις «Προσθήκη» βλέπεις ήδη τη διάρκεια και τα ποσά.</p>
+        <p class="step-next">{{ icon('arrow-right') }}<span>Η εγγραφή εμφανίζεται στις Καταχωρίσεις και στα σύνολα του μήνα.</span></p>
+        <a class="text-link" href="#pdf">Έχεις το πρόγραμμα σε PDF; Πέρασέ το όλο <span class="nowrap">μαζί{{ icon('chevron-right') }}</span></a>
+      </div>
+      <figure class="step-media stage stage-narrow tone-indigo">
+        {{ shot('entry-shift', 'Η φόρμα Νέα Καταχώριση: βάρδια από 07:00 έως 15:30, με προεπισκόπηση διάρκεια 8:30, σύνολο 85.00 €, άμεση 63.75 € και ταμείο 21.25 €.', 384, 498, cls='shot') }}
+      </figure>
+    </li>
+
+    <li class="step" data-reveal>
+      <div class="step-copy">
+        <span class="step-num" aria-hidden="true">3</span>
+        <h3 class="title-xs"><span class="visually-hidden">Βήμα 3: </span>Δες τι έχεις βγάλει</h3>
+        <p>Στο πάνω μέρος της σελίδας είναι τα <strong>Μηνιαία Έσοδα</strong> του τρέχοντος μήνα. Πιο κάτω, τα <strong>Συνολικά</strong>: η άμεση πληρωμή από την αρχή, πόσα έχουν μαζευτεί στο Ταμείο Νοέμβρη και ο μέσος όρος ανά μήνα.</p>
+        <p class="step-next">{{ icon('arrow-right') }}<span>Για παλαιότερους μήνες, χρησιμοποίησε τα βέλη ή πάτα μια στήλη στο γράφημα.</span></p>
+      </div>
+      <figure class="step-media stage stage-narrow tone-green">
+        {{ shot('totals-phone', 'Τα Συνολικά: άμεση πληρωμή 8122.50 € από την αρχή, Ταμείο Νοέμβρη 2707.50 € και μέση μηνιαία πληρωμή 1160.36 €, με καλύτερο μήνα τον Οκτώβριο 2026.', 358, 326, cls='shot shot-totals') }}
+      </figure>
+    </li>
+
+    <li class="step" data-reveal>
+      <div class="step-copy">
+        <span class="step-num" aria-hidden="true">4</span>
+        <h3 class="title-xs"><span class="visually-hidden">Βήμα 4: </span>Βάλ’ το στην αρχική οθόνη</h3>
+        <p>Άνοιξε τη διεύθυνση στο κινητό και συνδέσου. Μετά:</p>
+        <ul class="platforms" role="list">
+          <li><strong>iPhone (Safari)</strong><span>Κοινοποίηση → Προσθήκη στην οθόνη Αφετηρίας</span></li>
+          <li><strong>Android (Chrome)</strong><span>⋮ → Προσθήκη στην αρχική οθόνη</span></li>
+        </ul>
+        <p class="step-next">{{ icon('arrow-right') }}<span>Ανοίγει σαν κανονική εφαρμογή και μένεις συνδεδεμένος για έναν χρόνο.</span></p>
+      </div>
+      <figure class="step-media stage stage-phone tone-purple">
+        <div class="phone phone-sm">
+          {{ shot('phone-dashboard-dark', 'Το Work Tracker σε κινητό με σκοτεινό θέμα: Μηνιαία Έσοδα του Οκτωβρίου και γράφημα.', 390, 844, widths=[780], sizes='240px') }}
+        </div>
+      </figure>
+    </li>
+  </ol>
+</section>
+
+<!-- ===== Η εφαρμογή ===== -->
+<section class="section" id="showcase" aria-labelledby="showcase-title">
+  <div class="wrap section-head" data-reveal>
+    <p class="eyebrow tone-blue">Η εφαρμογή</p>
+    <h2 class="title" id="showcase-title">Μία σελίδα. Όλα στη θέση τους.</h2>
+    <p class="lead">Στον υπολογιστή όλα χωράνε σε μία οθόνη. Η εμφάνιση ακολουθεί το φωτεινό ή σκοτεινό θέμα της συσκευής σου.</p>
+  </div>
+
+  <div class="wrap showcase" data-reveal>
+    <div class="theme-switch">
+      <fieldset class="segmented" aria-label="Θέμα στιγμιότυπου">
+        <label><input type="radio" name="showcase-theme" value="light" checked><span>Φωτεινό</span></label>
+        <label><input type="radio" name="showcase-theme" value="dark"><span>Σκοτεινό</span></label>
+      </fieldset>
+    </div>
+
+    <figure class="browser showcase-browser">
+      <div class="browser-bar" aria-hidden="true">
+        <span class="browser-dots"><span></span><span></span><span></span></span>
+        <span class="browser-url">{{ icon('lock') }}Work Tracker</span>
+      </div>
+      <div class="pins-wrap">
+        {{ shot('dashboard-light', 'Η κεντρική οθόνη σε φωτεινό θέμα, με αριθμημένες σημειώσεις που εξηγούνται στη λίστα από κάτω.', 1440, 900, widths=[1440, 2880], sizes='(min-width: 1180px) 1100px, 94vw', cls='theme-light') }}
+        {{ shot('dashboard-dark', '', 1440, 900, widths=[1440, 2880], sizes='(min-width: 1180px) 1100px, 94vw', cls='theme-dark') }}
+        <span class="pin" style="--x: 25.5%; --y: 18.4%" data-pin="1" aria-hidden="true">1</span>
+        <span class="pin" style="--x: 34%; --y: 33.5%" data-pin="2" aria-hidden="true">2</span>
+        <span class="pin" style="--x: 72.2%; --y: 27%" data-pin="3" aria-hidden="true">3</span>
+        <span class="pin" style="--x: 13%; --y: 59.2%" data-pin="4" aria-hidden="true">4</span>
+        <span class="pin" style="--x: 34%; --y: 83%" data-pin="5" aria-hidden="true">5</span>
+        <span class="pin" style="--x: 79.5%; --y: 83.6%" data-pin="6" aria-hidden="true">6</span>
+      </div>
+    </figure>
+
+    <ol class="legend" role="list">
+      <li data-pin="1"><span class="legend-num" aria-hidden="true">1</span><span><strong>Επιλογή μήνα</strong> με βέλη ή από τη λίστα.</span></li>
+      <li data-pin="2"><span class="legend-num" aria-hidden="true">2</span><span><strong>Άμεση πληρωμή</strong> του μήνα και η διαφορά από τον προηγούμενο.</span></li>
+      <li data-pin="3"><span class="legend-num" aria-hidden="true">3</span><span><strong>Γράφημα</strong> με μία στήλη για κάθε μήνα.</span></li>
+      <li data-pin="4"><span class="legend-num" aria-hidden="true">4</span><span><strong>Συνολικά</strong> από την πρώτη σου εγγραφή.</span></li>
+      <li data-pin="5"><span class="legend-num" aria-hidden="true">5</span><span><strong>Νέα Καταχώριση</strong> με προεπισκόπηση πληρωμής.</span></li>
+      <li data-pin="6"><span class="legend-num" aria-hidden="true">6</span><span><strong>Εξαγωγή CSV</strong> όλων των εγγραφών.</span></li>
+    </ol>
+  </div>
+
+  <div class="wrap phones" data-reveal>
+    <figure>
+      <div class="phone">{{ shot('phone-records', 'Οι Καταχωρίσεις στο κινητό: κάθε εγγραφή σε τρεις γραμμές με ημερομηνία και σύνολο, τύπο και ωράριο, άμεση πληρωμή και ταμείο.', 390, 844, widths=[780], sizes='280px') }}</div>
+      <figcaption><strong>Λίστα στο κινητό</strong>Κάθε εγγραφή σε τρεις γραμμές, με μολύβι και κάδο δίπλα στα ποσά.</figcaption>
+    </figure>
+    <figure>
+      <div class="phone">{{ shot('phone-entry-dark', 'Η φόρμα Νέα Καταχώριση στο κινητό σε σκοτεινό θέμα: βάρδια 06:30 έως 14:30, διάρκεια 8:00, σύνολο 80.00 €, άμεση 60.00 €, ταμείο 20.00 €.', 390, 844, widths=[780], sizes='280px') }}</div>
+      <figcaption><strong>Σκοτεινό θέμα</strong>Αλλάζει μόνο του μαζί με τη ρύθμιση της συσκευής.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ===== Γιατί ===== -->
+<section class="section band" id="why" aria-labelledby="why-title">
+  <div class="wrap section-head" data-reveal>
+    <p class="eyebrow tone-green">Γιατί Work Tracker</p>
+    <h2 class="title" id="why-title">Φτιαγμένο για τον τρόπο που πληρώνεσαι.</h2>
+  </div>
+  <ul class="wrap benefits" role="list" data-reveal>
+    <li>{{ chip('euro', 'green') }}<h3 class="headline">Οι κανόνες είναι ήδη μέσα</h3><p class="secondary">10 € την ώρα, 75% άμεση πληρωμή, 25% ταμείο, 40 € το transfer. Δεν ρυθμίζεις τίποτα.</p></li>
+    <li>{{ chip('clock', 'blue') }}<h3 class="headline">Και μετά τα μεσάνυχτα</h3><p class="secondary">Μια βάρδια 22:00–06:00 μετράει σωστά 8 ώρες.</p></li>
+    <li>{{ chip('lock', 'indigo') }}<h3 class="headline">Μόνο τα δικά σου</h3><p class="secondary">Κάθε λογαριασμός βλέπει μόνο τις δικές του εγγραφές.</p></li>
+    <li>{{ chip('download', 'teal') }}<h3 class="headline">Τα δεδομένα σου φεύγουν μαζί σου</h3><p class="secondary">Εξαγωγή όλων των εγγραφών σε CSV, έτοιμο για Excel.</p></li>
+    <li>{{ chip('phone', 'purple') }}<h3 class="headline">Χωρίς εγκατάσταση</h3><p class="secondary">Ανοίγει στον browser, σε κινητό και υπολογιστή, και μπαίνει στην αρχική οθόνη.</p></li>
+    <li>{{ chip('moon', 'orange') }}<h3 class="headline">Άνετο στο μάτι</h3><p class="secondary">Φωτεινό ή σκοτεινό θέμα, και προσαρμογή όταν η συσκευή ζητά λιγότερη κίνηση ή περισσότερη αντίθεση.</p></li>
+  </ul>
+</section>
+
+<!-- ===== Ερωτήσεις ===== -->
+<section class="section" id="faq" aria-labelledby="faq-title">
+  <div class="wrap faq-layout">
+    <div class="section-head section-head-left" data-reveal>
+      <p class="eyebrow tone-orange">Ερωτήσεις</p>
+      <h2 class="title" id="faq-title">Συχνές ερωτήσεις</h2>
+      <p class="secondary">Δεν βρίσκεις αυτό που ψάχνεις; Ρώτα όποιον σου έδωσε τον κωδικό πρόσκλησης. Αυτός διαχειρίζεται την εφαρμογή.</p>
+    </div>
+    <div class="card faq" data-reveal>
+      <details>
+        <summary><span>Τι κάνει το Work Tracker;</span>{{ icon('chevron-right', 'icon faq-chevron') }}</summary>
+        <div class="faq-body"><p>Κρατά τις βάρδιες και τα transfer σου και υπολογίζει για καθεμία το σύνολο, την άμεση πληρωμή και το ποσό για το Ταμείο Νοέμβρη. Δείχνει τα έσοδα ανά μήνα, τα συνολικά από την αρχή, και σου επιτρέπει να τα εξαγάγεις σε CSV.</p></div>
+      </details>
+      <details>
+        <summary><span>Σε ποιον απευθύνεται;</span>{{ icon('chevron-right', 'icon faq-chevron') }}</summary>
+        <div class="faq-body"><p>Σε όσους δουλεύουν με βάρδιες και transfer με αυτούς τους κανόνες: 10 € την ώρα για τις βάρδιες, 40 € το transfer, και 25% που κρατιέται για το Ταμείο Νοέμβρη.</p></div>
+      </details>
+      <details>
+        <summary><span>Χρειάζομαι λογαριασμό;</span>{{ icon('chevron-right', 'icon faq-chevron') }}</summary>
+        <div class="faq-body"><p>Ναι. Κάθε άτομο έχει δικό του λογαριασμό και βλέπει μόνο τις δικές του εγγραφές. Για να φτιάξεις λογαριασμό χρειάζεσαι τον κωδικό πρόσκλησης από όποιον διαχειρίζεται την εφαρμογή.{% if not registration_open %} Αυτή τη στιγμή οι νέοι λογαριασμοί είναι κλειστοί.{% endif %}</p></div>
+      </details>
+      <details>
+        <summary><span>Πώς υπολογίζεται η πληρωμή;</span>{{ icon('chevron-right', 'icon faq-chevron') }}</summary>
+        <div class="faq-body">
+          <p>Βάρδια: ώρες × 10 €. Από αυτό, το 75% είναι άμεση πληρωμή και το 25% πάει στο Ταμείο Νοέμβρη. Για παράδειγμα, 07:00–15:30 είναι 8:30 ώρες, δηλαδή 85.00 € σύνολο, 63.75 € άμεση πληρωμή και 21.25 € ταμείο.</p>
+          <p>Transfer: σταθερά 40 €, δηλαδή 30 € άμεση πληρωμή και 10 € ταμείο.</p>
+        </div>
+      </details>
+      <details>
+        <summary><span>Ποια PDF μπορώ να εισαγάγω;</span>{{ icon('chevron-right', 'icon faq-chevron') }}</summary>
+        <div class="faq-body"><p>Το εβδομαδιαίο πρόγραμμα εργασίας σε μορφή πίνακα, όπου κάθε κελί έχει την ημερομηνία (π.χ. 12/10/2026) και από κάτω τις εργασίες με τις ώρες τους (π.χ. 06:30 - 14:30). Μπορείς να επιλέξεις πολλά αρχεία μαζί. Αν ένα αρχείο δεν διαβάζεται, η εφαρμογή σού λέει ποιο, και τα υπόλοιπα εισάγονται κανονικά.</p></div>
+      </details>
+      <details>
+        <summary><span>Τι γίνεται αν ανεβάσω την ίδια εβδομάδα δύο φορές;</span>{{ icon('chevron-right', 'icon faq-chevron') }}</summary>
+        <div class="faq-body"><p>Τίποτα δεν διπλασιάζεται. Οι βάρδιες που υπάρχουν ήδη παραλείπονται, και το μήνυμα στο τέλος σού λέει πόσες προστέθηκαν και πόσες παραλείφθηκαν.</p></div>
+      </details>
+      <details>
+        <summary><span>Μπορώ να διορθώσω ή να σβήσω μια εγγραφή;</span>{{ icon('chevron-right', 'icon faq-chevron') }}</summary>
+        <div class="faq-body"><p>Ναι. Στις Καταχωρίσεις, το μολύβι ανοίγει την εγγραφή στη φόρμα για αλλαγές και ο κάδος τη διαγράφει, αφού το επιβεβαιώσεις. Στη Μαζική Εισαγωγή, μια γραμμή που ξεκινά με «edit» αντικαθιστά τη βάρδια εκείνης της ημέρας.</p></div>
+      </details>
+      <details>
+        <summary><span>Ξέχασα τον κωδικό μου. Τι κάνω;</span>{{ icon('chevron-right', 'icon faq-chevron') }}</summary>
+        <div class="faq-body"><p>Δεν υπάρχει αυτόματη επαναφορά. Ζήτα από όποιον διαχειρίζεται την εφαρμογή να σου ορίσει νέο κωδικό.</p></div>
+      </details>
+      <details>
+        <summary><span>Πώς κρατάω αντίγραφο των εγγραφών μου;</span>{{ icon('chevron-right', 'icon faq-chevron') }}</summary>
+        <div class="faq-body"><p>Με το κουμπί «Εξαγωγή CSV» πάνω από τις Καταχωρίσεις. Το αρχείο έχει ημερομηνία, τύπο, ωράριο, ώρες και τα τρία ποσά για κάθε εγγραφή, και ανοίγει στο Excel με σωστά ελληνικά.</p></div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Τελική πρόσκληση ===== -->
+<section class="section final" aria-labelledby="final-title">
+  <div class="wrap">
+    <div class="final-card" data-reveal>
+      <img class="final-icon" src="{{ url_for('static', filename='icon.svg') }}" alt="" width="72" height="72" loading="lazy">
+      <h2 class="title" id="final-title">Η επόμενη βάρδια σου,<br>ήδη υπολογισμένη.</h2>
+      <p class="lead">{% if current_user %}Συνέχισε από εκεί που σταμάτησες.{% elif registration_open %}Φτιάξε λογαριασμό με τον κωδικό πρόσκλησης και πρόσθεσε την πρώτη σου βάρδια.{% else %}Συνδέσου και πρόσθεσε την επόμενη βάρδια σου.{% endif %}</p>
+      <div class="cta-row">
+        {{ primary_cta('btn-lg') }}
+        {% if not current_user and registration_open %}<a class="btn btn-secondary btn-lg" href="{{ url_for('login') }}">Έχω ήδη λογαριασμό</a>{% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block footer %}
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <img src="{{ url_for('static', filename='icon.svg') }}" alt="" width="28" height="28" loading="lazy">
+      <div>
+        <p class="headline">Work Tracker</p>
+        <p class="footnote secondary">Διαχείριση Ωρών &amp; Ταμείου</p>
+      </div>
+    </div>
+    <nav class="footer-links" aria-label="Υποσέλιδο">
+      <a href="#how">Πώς λειτουργεί</a>
+      <a href="#features">Δυνατότητες</a>
+      <a href="#showcase">Η εφαρμογή</a>
+      <a href="#faq">Ερωτήσεις</a>
+      {% if current_user %}
+      <a href="{{ url_for('index') }}">Άνοιγμα εφαρμογής</a>
+      {% else %}
+      <a href="{{ url_for('login') }}">Σύνδεση</a>
+      {% if registration_open %}<a href="{{ url_for('register') }}">Δημιουργία λογαριασμού</a>{% endif %}
+      {% endif %}
+    </nav>
+  </div>
+  <p class="wrap footnote secondary footer-note">Οι εικόνες είναι στιγμιότυπα της εφαρμογής με δοκιμαστικά δεδομένα.</p>
+</footer>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='home.js') }}"></script>
+{% endblock %}

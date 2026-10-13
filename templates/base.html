@@ -15,6 +15,7 @@
   <link rel="icon" href="{{ url_for('static', filename='icon.svg') }}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-180.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% block head %}{% endblock %}
 </head>
 <body>
   {% block navbar %}{% endblock %}
@@ -33,7 +34,9 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+  {% block footer %}{% endblock %}
   {% block dialogs %}{% endblock %}
   <script src="{{ url_for('static', filename='app.js') }}"></script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>
