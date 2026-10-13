@@ -41,6 +41,7 @@ To try it on your phone over the same Wi-Fi, open `http://<PC-IP>:5000`. Find th
 
    os.environ["INVITE_CODE"] = "the-code-you-give-to-coworkers"
    os.environ["SECRET_KEY"] = "the-value-from-step-4"
+   os.environ["SECURE_COOKIES"] = "1"   # login cookie only over HTTPS
 
    path = "/home/<username>/WorkTracker"
    if path not in sys.path:
@@ -51,9 +52,31 @@ To try it on your phone over the same Wi-Fi, open `http://<PC-IP>:5000`. Find th
    Save, go back to the Web tab and press **Reload**.
 7. Open `https://<username>.pythonanywhere.com`. If you uploaded a database where you already have an account, log in. Otherwise click **Δημιουργία λογαριασμού** and create yours **first**, so your existing records go to you. Then share the URL and the invite code with others.
 
-## Managing users
+## Admin panel
 
-There's no admin page. Run these in a PythonAnywhere **Bash console**:
+Admins get a **Διαχείριση** button in the app's top bar, which opens `/admin`. It runs inside the same web app: no extra process, worker or dependency.
+
+Admins manage **accounts, not data**: the panel never shows anyone's shifts, hours or pay.
+
+- **Επισκόπηση:** counts of users and active users, recent activity, and warnings about errors or repeated failed logins.
+- **Χρήστες:** search, filter, sort and page through users. Open a user to see when they joined, their last login and their recent activity. From there you can give them a new temporary password (shown once), disable or re-enable the account, or delete it along with its records (you must type the username to confirm).
+- **Δραστηριότητα:** logins, failed logins, sign-ups, admin actions and server errors. Only the latest 5,000 entries are kept.
+- **Ρυθμίσεις:** open or close sign-ups and change or regenerate the invite code. This takes effect immediately, with no Reload needed. The value set here overrides `INVITE_CODE` in the WSGI file.
+- **Σύστημα:** Python, Flask and SQLite versions, time since restart, process memory, database size, and recent errors.
+
+### Who is an admin
+
+For safety, admin rights can only be granted or removed from a **Bash console**, never from the website. Admin accounts can't be disabled, deleted or have their password reset from the panel.
+
+```bash
+cd ~/WorkTracker && workon worktracker
+flask --app app set-admin <username>            # make someone an admin
+flask --app app set-admin <username> --revoke   # remove admin rights
+```
+
+The database gets the new columns and tables automatically the first time the updated app starts.
+
+## Managing users from the console
 
 ```bash
 cd ~/WorkTracker && workon worktracker
@@ -61,8 +84,8 @@ flask --app app list-users                  # who exists + how many records each
 flask --app app reset-password <username>   # set a new password for someone who forgot theirs
 ```
 
-- **Close sign-ups:** remove the `INVITE_CODE` line from the WSGI file and press Reload.
-- **Change the invite code:** edit the line in the WSGI file and press Reload.
+- **Close sign-ups:** use Διαχείριση → Ρυθμίσεις, or remove the `INVITE_CODE` line from the WSGI file and press Reload.
+- **Change the invite code:** use Διαχείριση → Ρυθμίσεις, or edit the line in the WSGI file and press Reload.
 
 ### On your phone
 Open the URL, log in, then add it to your home screen:
@@ -85,8 +108,10 @@ Upload it to `/home/<username>/`, then in Bash run `cd ~/WorkTracker && unzip -o
 
 ## Files
 
-- `app.py`: Flask routes, accounts, admin commands
-- `core.py`: pay calculation, bulk-text and PDF parsing, SQLite access
+- `app.py`: Flask routes, accounts, CSRF protection, console admin commands
+- `admin.py`: the admin panel (`/admin`)
+- `core.py`: pay calculation, bulk-text and PDF parsing, SQLite access, settings and activity log
+- `tests/`: automated checks, run with `python -m unittest discover tests` (they use a temporary database)
 - `templates/`, `static/`: UI (HTML/CSS/JS, icons)
 - `work_data.db`: the database
 - `_backup_desktop/`: the old PyQt desktop version (not uploaded)

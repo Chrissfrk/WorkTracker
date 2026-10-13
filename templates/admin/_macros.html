@@ -1,0 +1,56 @@
+{% from "_icons.html" import icon, chip %}
+
+{# Κεφαλίδα σελίδας: τίτλος, υπότιτλος και (προαιρετικά) ενέργειες δεξιά #}
+{% macro page_header(title, subtitle=none) -%}
+<header class="admin-header">
+  <div>
+    <h1 class="large-title">{{ title }}</h1>
+    {% if subtitle %}<p class="secondary">{{ subtitle }}</p>{% endif %}
+  </div>
+  {% if caller %}<div class="admin-header-actions">{{ caller() }}</div>{% endif %}
+</header>
+{%- endmacro %}
+
+{# Σελιδοποίηση: κρατά τα φίλτρα της διεύθυνσης και αλλάζει μόνο το page #}
+{% macro pager(p) -%}
+{% if p.pages > 1 %}
+{% set args = {} %}
+{% for key, value in request.args.items() if key != 'page' and not key.startswith('_') %}{% set _ = args.update({key: value}) %}{% endfor %}
+<nav class="pager" aria-label="Σελίδες">
+  <a class="btn btn-secondary btn-sm" {% if p.page > 1 %}href="{{ url_for(request.endpoint, page=p.page - 1, **args) }}"{% else %}aria-disabled="true"{% endif %}>{{ icon('chevron-left') }}<span>Προηγούμενη</span></a>
+  <span class="footnote secondary">Σελίδα {{ p.page }} από {{ p.pages }}</span>
+  <a class="btn btn-secondary btn-sm" {% if p.page < p.pages %}href="{{ url_for(request.endpoint, page=p.page + 1, **args) }}"{% else %}aria-disabled="true"{% endif %}><span>Επόμενη</span>{{ icon('chevron-right') }}</a>
+</nav>
+{% endif %}
+{%- endmacro %}
+
+{% macro user_badges(u) -%}
+{% if u.is_admin %}<span class="badge tone-indigo">Διαχειριστής</span>{% endif %}
+{% if u.disabled %}<span class="badge tone-orange">Απενεργοποιημένος</span>{% endif %}
+{%- endmacro %}
+
+{% macro avatar(name, cls='') -%}
+<span class="avatar {{ cls }}" aria-hidden="true">{{ name[:1]|upper }}</span>
+{%- endmacro %}
+
+{# Μία γραμμή δραστηριότητας (λίστα επισκόπησης / χρήστη) #}
+{% macro activity_item(a, actions) -%}
+{% set label, tone = actions.get(a.action, (a.action, 'blue')) %}
+<li class="feed-item">
+  <span class="feed-dot tone-{{ tone }}" aria-hidden="true"></span>
+  <div class="feed-body">
+    <p><strong>{{ label }}</strong>{% if a.target %} · {{ a.target }}{% endif %}</p>
+    <p class="footnote secondary">
+      {{ a.at|when }}{% if a.actor %} · {{ a.actor }}{% endif %}{% if a.detail %} · {{ a.detail }}{% endif %}
+    </p>
+  </div>
+</li>
+{%- endmacro %}
+
+{% macro empty(glyph, title, text=none) -%}
+<div class="empty-state">
+  <span class="empty-icon">{{ icon(glyph) }}</span>
+  <p class="headline">{{ title }}</p>
+  {% if text %}<p class="footnote secondary">{{ text }}</p>{% endif %}
+</div>
+{%- endmacro %}

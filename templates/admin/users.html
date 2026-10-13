@@ -1,0 +1,63 @@
+{% extends "admin/_layout.html" %}
+{% from "_icons.html" import icon, chip %}
+{% from "admin/_macros.html" import page_header, pager, user_badges, avatar, empty with context %}
+{% block title %}Χρήστες · Διαχείριση{% endblock %}
+
+{% block admin_content %}
+{{ page_header('Χρήστες', p.total ~ (' χρήστης' if p.total == 1 else ' χρήστες') ~ (' βρέθηκαν' if q or role else '')) }}
+
+<form method="get" class="card filters" role="search">
+  <div class="field filter-search">
+    <label class="visually-hidden" for="q">Αναζήτηση</label>
+    <span class="input-icon">{{ icon('search') }}</span>
+    <input type="search" id="q" name="q" value="{{ q }}" placeholder="Όνομα χρήστη" maxlength="30"
+           autocapitalize="none" autocorrect="off" spellcheck="false">
+  </div>
+  <div class="field">
+    <label class="visually-hidden" for="role">Φίλτρο</label>
+    <select id="role" name="role" data-autosubmit>
+      {% for key, (label, _) in roles.items() %}<option value="{{ key }}" {% if key == role %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label class="visually-hidden" for="sort">Ταξινόμηση</label>
+    <select id="sort" name="sort" data-autosubmit>
+      {% for key, (label, _) in sorts.items() %}<option value="{{ key }}" {% if key == sort %}selected{% endif %}>Ταξινόμηση: {{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary btn-sm">Αναζήτηση</button>
+</form>
+
+<section class="card table-card">
+  {% if users %}
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Χρήστης</th>
+          <th scope="col">Δημιουργία</th><th scope="col">Τελευταία σύνδεση</th>
+          <th scope="col"><span class="visually-hidden">Άνοιγμα</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td class="cell-main">
+            <a class="user-cell" href="{{ url_for('admin.user_detail', user_id=u.id) }}">
+              {{ avatar(u.username) }}<strong>{{ u.username }}</strong>{{ user_badges(u) }}
+            </a>
+          </td>
+          <td class="secondary" data-label="Δημιουργία">{{ u.created_at|when }}</td>
+          <td class="secondary" data-label="Σύνδεση">{{ u.last_login_at|when }}</td>
+          <td class="actions"><a class="icon-btn" href="{{ url_for('admin.user_detail', user_id=u.id) }}" aria-label="Λεπτομέρειες: {{ u.username }}">{{ icon('chevron-right') }}</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  {{ empty('search', 'Δεν βρέθηκαν χρήστες', 'Δοκιμάστε άλλη αναζήτηση ή φίλτρο.') }}
+  {% endif %}
+</section>
+{{ pager(p) }}
+{% endblock %}

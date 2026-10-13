@@ -9,6 +9,7 @@
     <p class="secondary">Χρειάζεσαι τον κωδικό πρόσκλησης.</p>
   </header>
   <form method="post" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="field">
       <label class="field-label" for="invite">Κωδικός πρόσκλησης</label>
       <input type="text" id="invite" name="invite" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" autofocus>

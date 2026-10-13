@@ -3,7 +3,6 @@ import re
 import sqlite3
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import pdfplumber
 
 # --- Ρυθμίσεις ---
 
@@ -51,6 +50,22 @@ def init_db():
     if "user_id" not in columns:
         c.execute("ALTER TABLE records ADD COLUMN user_id INTEGER REFERENCES users(id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_records_user_date ON records(user_id, date)")
+    # Διαχείριση: ρόλος, απενεργοποίηση, ακύρωση συνδέσεων (session_epoch) και τελευταία σύνδεση
+    user_columns = [row[1] for row in c.execute("PRAGMA table_info(users)")]
+    for name, ddl in [("is_admin", "INTEGER NOT NULL DEFAULT 0"), ("disabled", "INTEGER NOT NULL DEFAULT 0"),
+                      ("session_epoch", "INTEGER NOT NULL DEFAULT 0"), ("last_login_at", "TEXT")]:
+        if name not in user_columns:
+            c.execute(f"ALTER TABLE users ADD COLUMN {name} {ddl}")
+    c.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+    c.execute('''CREATE TABLE IF NOT EXISTS activity (
+                    id INTEGER PRIMARY KEY,
+                    at TEXT NOT NULL,
+                    actor_id INTEGER,
+                    actor TEXT,
+                    action TEXT NOT NULL,
+                    target TEXT,
+                    detail TEXT
+                )''')
     conn.commit()
     conn.close()
 
@@ -100,6 +115,59 @@ def list_users():
                            LEFT JOIN records r ON r.user_id = u.id GROUP BY u.id ORDER BY u.id""").fetchall()
     conn.close()
     return rows
+
+def set_admin(user_id, is_admin):
+    conn = connect()
+    conn.execute("UPDATE users SET is_admin=? WHERE id=?", (int(is_admin), user_id))
+    conn.commit()
+    conn.close()
+
+def touch_login(user_id):
+    conn = connect()
+    conn.execute("UPDATE users SET last_login_at=? WHERE id=?", (now_local().isoformat(timespec="seconds"), user_id))
+    conn.commit()
+    conn.close()
+
+# --- Ρυθμίσεις (από τη Διαχείριση) ---
+
+def get_settings():
+    conn = connect()
+    rows = conn.execute("SELECT key, value FROM settings").fetchall()
+    conn.close()
+    return dict(rows)
+
+def set_settings(values):
+    conn = connect()
+    conn.executemany("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                     values.items())
+    conn.commit()
+    conn.close()
+
+def registration_state():
+    """Δημιουργία λογαριασμών: η ρύθμιση από τη Διαχείριση υπερισχύει του INVITE_CODE (WSGI αρχείο / .env).
+    code είναι ο ενεργός κωδικός πρόσκλησης ή "" αν οι εγγραφές είναι κλειστές."""
+    settings = get_settings()
+    stored = settings.get("invite_code") or os.environ.get("INVITE_CODE", "")
+    is_open = settings.get("registration") != "off"
+    return {"open": is_open, "code": stored if is_open else "", "stored_code": stored,
+            "from_env": not settings.get("invite_code") and bool(stored)}
+
+# --- Ημερολόγιο δραστηριότητας ---
+
+# Κρατάμε μόνο τις πιο πρόσφατες καταγραφές, ώστε ο πίνακας να μη μεγαλώνει χωρίς όριο
+ACTIVITY_KEEP = 5000
+
+def log_activity(action, actor=None, target=None, detail=None):
+    """Καταγράφει ένα γεγονός (σύνδεση, ενέργεια διαχειριστή, σφάλμα). Ποτέ κωδικούς ή tokens."""
+    conn = connect()
+    c = conn.cursor()
+    c.execute("INSERT INTO activity (at, actor_id, actor, action, target, detail) VALUES (?, ?, ?, ?, ?, ?)",
+              (now_local().isoformat(timespec="seconds"), actor["id"] if actor else None,
+               actor["username"] if actor else None, action,
+               target[:200] if target else None, detail[:500] if detail else None))
+    c.execute("DELETE FROM activity WHERE id <= ?", (c.lastrowid - ACTIVITY_KEEP,))
+    conn.commit()
+    conn.close()
 
 def calculate_pay(record_type, hours):
     if record_type == "transfer":
@@ -209,6 +277,8 @@ def parse_pdf_schedule(file):
     Κάθε κελί του πίνακα περιέχει την ημερομηνία και από κάτω τις εργασίες (κωδικός + ώρες), π.χ.
     '12/10/2026\\nSTF-PIR-RBR-\\n12OCT26\\n06:30 - 14:30'.
     """
+    import pdfplumber  # Φορτώνεται μόνο όταν χρειαστεί (~8 MB μνήμης λιγότερα στον server)
+
     records = []
     date_pattern = re.compile(r'(\d{1,2})/(\d{1,2})/(\d{4})')
     time_pattern = re.compile(r'(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})')

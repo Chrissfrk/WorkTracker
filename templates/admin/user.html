@@ -1,0 +1,89 @@
+{% extends "admin/_layout.html" %}
+{% from "_icons.html" import icon, chip %}
+{% from "admin/_macros.html" import user_badges, avatar, activity_item, empty with context %}
+{% block title %}{{ user.username }} · Διαχείριση{% endblock %}
+
+{% block admin_content %}
+<a class="back-link" href="{{ url_for('admin.users') }}">{{ icon('chevron-left') }}Χρήστες</a>
+
+<section class="card profile">
+  {{ avatar(user.username, 'avatar-lg') }}
+  <div class="profile-main">
+    <h1 class="large-title">{{ user.username }}</h1>
+    <p class="profile-badges">{{ user_badges(user) }}</p>
+    <dl class="profile-meta">
+      <div><dt>Δημιουργία</dt><dd>{{ user.created_at|when }}</dd></div>
+      <div><dt>Τελευταία σύνδεση</dt><dd>{{ user.last_login_at|when }}</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="card" aria-labelledby="user-activity-title">
+  <div class="card-header">
+    <div class="card-title">{{ chip('pulse', 'pink') }}<h2 class="title3" id="user-activity-title">Δραστηριότητα</h2></div>
+  </div>
+  {% if activity %}
+  <ul class="feed">{% for a in activity %}{{ activity_item(a, actions) }}{% endfor %}</ul>
+  {% else %}
+  {{ empty('pulse', 'Καμία καταγραφή') }}
+  {% endif %}
+</section>
+
+{% if user.is_admin %}
+<div class="notice">
+  {{ icon('shield', 'icon notice-icon') }}
+  <div class="notice-text">Λογαριασμός διαχειριστή: αλλαγές (κωδικός, απενεργοποίηση, διαγραφή, ρόλος) γίνονται μόνο από το Bash console.</div>
+</div>
+{% else %}
+<section class="card" aria-labelledby="manage-title">
+  <div class="card-header">
+    <div class="card-title">{{ chip('key', 'purple') }}<h2 class="title3" id="manage-title">Λογαριασμός</h2></div>
+  </div>
+  <div class="action-list">
+    <div class="action-row">
+      <div>
+        <p class="headline">Νέος προσωρινός κωδικός</p>
+        <p class="footnote secondary">Δημιουργεί τυχαίο κωδικό που εμφανίζεται μία φορά. Οι ανοιχτές συνδέσεις του χρήστη κλείνουν.</p>
+      </div>
+      <form method="post" action="{{ url_for('admin.user_password', user_id=user.id) }}" class="delete-form"
+            data-confirm-title="Νέος κωδικός για «{{ user.username }}»;" data-confirm-action="Δημιουργία"
+            data-confirm="Ο τρέχων κωδικός θα πάψει να ισχύει και ο χρήστης θα αποσυνδεθεί.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-secondary btn-sm">{{ icon('key') }}Δημιουργία</button>
+      </form>
+    </div>
+    <div class="action-row">
+      <div>
+        <p class="headline">{{ 'Ενεργοποίηση' if user.disabled else 'Απενεργοποίηση' }}</p>
+        <p class="footnote secondary">{{ 'Ο χρήστης θα μπορεί ξανά να συνδεθεί.' if user.disabled else 'Ο χρήστης αποσυνδέεται και δεν μπορεί να συνδεθεί. Οι εγγραφές του μένουν.' }}</p>
+      </div>
+      <form method="post" action="{{ url_for('admin.user_status', user_id=user.id) }}"
+            {% if not user.disabled %}class="delete-form" data-confirm-title="Απενεργοποίηση «{{ user.username }}»;"
+            data-confirm-action="Απενεργοποίηση" data-confirm="Μπορείτε να τον ενεργοποιήσετε ξανά οποιαδήποτε στιγμή."{% endif %}>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="{{ 'enable' if user.disabled else 'disable' }}">
+        <button type="submit" class="btn btn-secondary btn-sm">{{ icon('check-circle' if user.disabled else 'ban') }}{{ 'Ενεργοποίηση' if user.disabled else 'Απενεργοποίηση' }}</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section class="card danger-zone" id="danger" aria-labelledby="danger-title">
+  <div class="card-header">
+    <div class="card-title">{{ chip('trash', 'red') }}<h2 class="title3" id="danger-title">Διαγραφή λογαριασμού</h2></div>
+  </div>
+  <p class="footnote secondary">Διαγράφει οριστικά τον χρήστη και όλες τις εγγραφές του. Δεν αναιρείται — αν χρειάζεστε τα δεδομένα, κατεβάστε πρώτα αντίγραφο της βάσης.</p>
+  <form method="post" action="{{ url_for('admin.user_delete', user_id=user.id) }}" class="danger-form delete-form"
+        data-confirm-title="Οριστική διαγραφή «{{ user.username }}»;" data-confirm-action="Διαγραφή"
+        data-confirm="Ο λογαριασμός και όλες οι εγγραφές του θα χαθούν οριστικά.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+      <label class="field-label" for="confirm">Πληκτρολογήστε <strong>{{ user.username }}</strong> για επιβεβαίωση</label>
+      <input type="text" id="confirm" name="confirm" required autocomplete="off" autocapitalize="none" autocorrect="off"
+             spellcheck="false" data-match="{{ user.username }}">
+    </div>
+    <button type="submit" class="btn btn-destructive btn-sm" data-requires-match>{{ icon('trash') }}Διαγραφή χρήστη</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

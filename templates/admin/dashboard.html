@@ -1,0 +1,83 @@
+{% extends "admin/_layout.html" %}
+{% from "_icons.html" import icon, chip %}
+{% from "admin/_macros.html" import page_header, activity_item, avatar, empty with context %}
+{% block title %}Διαχείριση · Work Tracker{% endblock %}
+
+{% block admin_content %}
+{{ page_header('Επισκόπηση', 'Η εφαρμογή με μια ματιά') }}
+
+{% if counts.errors or counts.failed_logins >= 5 or counts.orphan_records %}
+<div class="admin-alerts">
+  {% if counts.errors %}
+  <a class="notice notice-error" href="{{ url_for('admin.system') }}#errors">
+    {{ icon('alert-circle', 'icon notice-icon') }}
+    <span class="notice-text">{{ counts.errors }} {{ 'σφάλμα' if counts.errors == 1 else 'σφάλματα' }} τις τελευταίες 7 ημέρες</span>
+    {{ icon('chevron-right') }}
+  </a>
+  {% endif %}
+  {% if counts.failed_logins >= 5 %}
+  <a class="notice notice-warning" href="{{ url_for('admin.activity', kind='auth') }}">
+    {{ icon('lock', 'icon notice-icon') }}
+    <span class="notice-text">{{ counts.failed_logins }} αποτυχημένες συνδέσεις το τελευταίο 24ωρο</span>
+    {{ icon('chevron-right') }}
+  </a>
+  {% endif %}
+  {% if counts.orphan_records %}
+  <div class="notice notice-warning">
+    {{ icon('tray', 'icon notice-icon') }}
+    <span class="notice-text">{{ counts.orphan_records }} εγγραφές χωρίς χρήστη (από την παλιά βάση ενός χρήστη)</span>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="admin-stats">
+  <a class="card stat tone-blue" href="{{ url_for('admin.users') }}">
+    <div class="stat-head">{{ chip('people', 'blue') }}<p class="stat-label">Χρήστες</p></div>
+    <p class="stat-value">{{ counts.users }}</p>
+    <p class="stat-sub">+{{ counts.new_users }} τις τελευταίες 30 ημέρες{% if counts.disabled_users %} · {{ counts.disabled_users }} απενεργ.{% endif %}</p>
+  </a>
+  <a class="card stat tone-green" href="{{ url_for('admin.users', sort='login') }}">
+    <div class="stat-head">{{ chip('person', 'green') }}<p class="stat-label">Ενεργοί χρήστες</p></div>
+    <p class="stat-value">{{ counts.active_users }}</p>
+    <p class="stat-sub">Συνδέθηκαν τις τελευταίες 30 ημέρες</p>
+  </a>
+  <a class="card stat tone-orange" href="{{ url_for('admin.settings') }}">
+    <div class="stat-head">{{ chip('sliders', 'orange') }}<p class="stat-label">Νέοι λογαριασμοί</p></div>
+    <p class="stat-value">{{ 'Ανοιχτοί' if registration_open else 'Κλειστοί' }}</p>
+    <p class="stat-sub">{{ 'Με κωδικό πρόσκλησης' if registration_open else 'Κανείς δεν μπορεί να εγγραφεί' }}</p>
+  </a>
+</div>
+
+<div class="admin-columns">
+  <section class="card" aria-labelledby="recent-title">
+    <div class="card-header">
+      <div class="card-title">{{ chip('pulse', 'pink') }}<h2 class="title3" id="recent-title">Πρόσφατη δραστηριότητα</h2></div>
+      <a class="btn btn-plain btn-sm" href="{{ url_for('admin.activity') }}">Όλη</a>
+    </div>
+    {% if activity %}
+    <ul class="feed">{% for a in activity %}{{ activity_item(a, actions) }}{% endfor %}</ul>
+    {% else %}
+    {{ empty('pulse', 'Καμία δραστηριότητα ακόμα', 'Συνδέσεις και ενέργειες διαχείρισης θα εμφανίζονται εδώ.') }}
+    {% endif %}
+  </section>
+
+  <section class="card" aria-labelledby="newest-title">
+    <div class="card-header">
+      <div class="card-title">{{ chip('person', 'blue') }}<h2 class="title3" id="newest-title">Νέοι χρήστες</h2></div>
+      <a class="btn btn-plain btn-sm" href="{{ url_for('admin.users') }}">Όλοι</a>
+    </div>
+    <ul class="list">
+      {% for u in newest %}
+      <li>
+        <a class="list-row" href="{{ url_for('admin.user_detail', user_id=u.id) }}">
+          {{ avatar(u.username) }}
+          <span class="list-main"><strong>{{ u.username }}</strong><span class="footnote secondary">{{ u.created_at|when }}</span></span>
+          {{ icon('chevron-right', 'icon list-chevron') }}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+{% endblock %}

@@ -5,11 +5,13 @@ import io
 import hmac
 import secrets
 from datetime import timedelta
+from urllib.parse import urlsplit
 import click
 from flask import (Flask, render_template, request, redirect, url_for, session,
                    flash, Response, g)
 from werkzeug.security import generate_password_hash, check_password_hash
 import core
+from admin import bp as admin_bp
 
 # Τοπικά οι ρυθμίσεις (INVITE_CODE κλπ) διαβάζονται από το .env — στον server από το WSGI αρχείο
 try:
@@ -23,14 +25,22 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.permanent_session_lifetime = timedelta(days=365) # Μένει συνδεδεμένο στο κινητό
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024 # Όριο για τα PDF
+# Cookie συνεδρίας: όχι από JavaScript, όχι σε αιτήματα από άλλα sites, μόνο HTTPS στον server
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get(
+    "SECURE_COOKIES", "1" if "PYTHONANYWHERE_DOMAIN" in os.environ else "0") == "1"
 
-# Κωδικός πρόσκλησης για νέους λογαριασμούς (χωρίς αυτόν η εγγραφή είναι κλειστή)
-INVITE_CODE = os.environ.get("INVITE_CODE", "")
+# Κωδικός πρόσκλησης για νέους λογαριασμούς (χωρίς αυτόν η εγγραφή είναι κλειστή): το INVITE_CODE,
+# εκτός αν η Διαχείριση → Ρυθμίσεις τον έχει αλλάξει ή έχει κλείσει τις εγγραφές
+def invite_code():
+    return core.registration_state()["code"]
 
 USERNAME_RE = re.compile(r"^[\w.-]{3,30}$")
 MIN_PASSWORD = 6
 
 core.init_db()
+app.register_blueprint(admin_bp)  # Διαχείριση (/admin), μόνο για διαχειριστές
 
 # --- Σύνδεση / Εγγραφή ---
 
@@ -40,20 +50,50 @@ def load_user():
     user_id = session.get("user_id")
     if user_id is not None:
         g.user = core.get_user(user_id)
-        if g.user is None:
+        # Διαγραμμένος/απενεργοποιημένος χρήστης ή αλλαγή κωδικού από τη Διαχείριση: η σύνδεση λήγει
+        if g.user is None or g.user["disabled"] or session.get("epoch", 0) != g.user["session_epoch"]:
+            g.user = None
             session.clear()
     # Η αρχική (index) δείχνει την παρουσίαση της εφαρμογής σε όσους δεν έχουν συνδεθεί
     if g.user is None and request.endpoint not in ("login", "register", "static", "home", "index"):
         return redirect(url_for("login"))
 
+# Προστασία CSRF: κάθε φόρμα POST στέλνει το token της συνεδρίας
+def csrf_token():
+    if "csrf" not in session:
+        session["csrf"] = secrets.token_urlsafe(32)
+    return session["csrf"]
+
+@app.before_request
+def check_csrf():
+    if request.method != "POST":
+        return None
+    sent = request.form.get("csrf_token", "")
+    if session.get("csrf") and hmac.compare_digest(sent.encode(), session["csrf"].encode()):
+        return None
+    flash("Η φόρμα έληξε. Δοκιμάστε ξανά.", "error")
+    referrer = urlsplit(request.referrer or "")
+    if referrer.netloc == request.host and referrer.path.startswith("/"):
+        return redirect(referrer.path)
+    return redirect(url_for("index"))
+
+@app.after_request
+def security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    return response
+
 @app.context_processor
 def inject_globals():
-    return {"current_user": g.get("user"), "registration_open": bool(INVITE_CODE)}
+    return {"current_user": g.get("user"), "registration_open": bool(invite_code()), "csrf_token": csrf_token}
 
-def start_session(user_id):
+def start_session(user):
     session.clear()
     session.permanent = True
-    session["user_id"] = user_id
+    session["user_id"] = user["id"]
+    session["epoch"] = user["session_epoch"]
+    core.touch_login(user["id"])
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -61,15 +101,23 @@ def login():
         username = request.form.get("username", "").strip()
         user = core.get_user_by_name(username)
         if user and check_password_hash(user["password_hash"], request.form.get("password", "")):
-            start_session(user["id"])
+            if user["disabled"]:
+                flash("Ο λογαριασμός έχει απενεργοποιηθεί. Επικοινωνήστε με τον διαχειριστή.", "error")
+                return render_template("login.html", username=username)
+            start_session(user)
+            core.log_activity("login", user)
             return redirect(url_for("index"))
+        # Το όνομα καταγράφεται μόνο αν υπάρχει (ώστε να μην κρατηθεί κωδικός γραμμένος κατά λάθος στο πεδίο)
+        core.log_activity("login_failed", target=user["username"] if user else None,
+                          detail=None if user else "Άγνωστο όνομα χρήστη")
         flash("Λάθος όνομα χρήστη ή κωδικός.", "error")
         return render_template("login.html", username=username)
     return render_template("login.html")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    if not INVITE_CODE:
+    code = invite_code()
+    if not code:
         flash("Η δημιουργία λογαριασμών είναι κλειστή.", "error")
         return redirect(url_for("login"))
 
@@ -77,7 +125,7 @@ def register():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         error = None
-        if not hmac.compare_digest(request.form.get("invite", "").strip(), INVITE_CODE):
+        if not hmac.compare_digest(request.form.get("invite", "").strip().encode(), code.encode()):
             error = "Λάθος κωδικός πρόσκλησης."
         elif not USERNAME_RE.match(username):
             error = "Το όνομα χρήστη πρέπει να έχει 3-30 χαρακτήρες (γράμματα, αριθμοί, . _ -)."
@@ -90,7 +138,9 @@ def register():
             if user_id is None:
                 error = "Το όνομα χρήστη υπάρχει ήδη."
             else:
-                start_session(user_id)
+                user = core.get_user(user_id)
+                start_session(user)
+                core.log_activity("register", user)
                 flash(f"Καλώς ήρθες, {username}!", "success")
                 return redirect(url_for("index"))
         flash(error, "error")
@@ -119,7 +169,21 @@ def reset_password_command(username, password):
     if not user:
         raise click.ClickException(f"Δεν υπάρχει χρήστης '{username}'.")
     core.set_password(user["id"], generate_password_hash(password))
+    core.log_activity("cli.reset_password", target=user["username"])
     click.echo(f"Ο κωδικός του '{user['username']}' άλλαξε.")
+
+@app.cli.command("set-admin")
+@click.argument("username")
+@click.option("--revoke", is_flag=True, help="Αφαιρεί τα δικαιώματα διαχειριστή.")
+def set_admin_command(username, revoke):
+    """Δίνει (ή με --revoke αφαιρεί) δικαιώματα διαχειριστή. Γίνεται μόνο από εδώ, ποτέ από τη σελίδα."""
+    user = core.get_user_by_name(username)
+    if not user:
+        raise click.ClickException(f"Δεν υπάρχει χρήστης '{username}'.")
+    core.set_admin(user["id"], not revoke)
+    core.log_activity("cli.revoke_admin" if revoke else "cli.set_admin", target=user["username"])
+    status = "δεν είναι πλέον" if revoke else "είναι τώρα"
+    click.echo(f"Ο '{user['username']}' {status} διαχειριστής.")
 
 # --- Παρουσίαση (δημόσια) ---
 
@@ -283,6 +347,19 @@ def export_csv():
     data = buf.getvalue().encode("utf-8-sig")
     return Response(data, mimetype="text/csv",
                     headers={"Content-Disposition": "attachment; filename=work_data.csv"})
+
+# --- Σφάλματα ---
+
+@app.errorhandler(500)
+def server_error(e):
+    # Η πλήρης καταγραφή πάει στο error log του server· εδώ κρατάμε μόνο τον τύπο και τη διαδρομή
+    original = getattr(e, "original_exception", None)
+    try:
+        core.log_activity("error", g.get("user"), target=f"{request.method} {request.path}",
+                          detail=type(original).__name__ if original else "InternalServerError")
+    except Exception:
+        pass
+    return Response("Κάτι πήγε στραβά. Δοκιμάστε ξανά σε λίγο.", 500, mimetype="text/plain; charset=utf-8")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

@@ -220,19 +220,23 @@ if (canUseDialog) {
 document.querySelectorAll(".delete-form").forEach((f) => {
   f.addEventListener("submit", (e) => {
     e.preventDefault();
+    // Ο τίτλος και το κουμπί αλλάζουν ανά φόρμα (data-confirm-title / data-confirm-action), π.χ. στη Διαχείριση
+    const title = f.dataset.confirmTitle || "Διαγραφή εγγραφής;";
     if (canUseDialog) {
       pendingDelete = f;
+      dialog.querySelector("#confirm-title").textContent = title;
       dialog.querySelector("#confirm-message").textContent = f.dataset.confirm;
+      dialog.querySelector("button[value=confirm]").textContent = f.dataset.confirmAction || "Διαγραφή";
       dialog.returnValue = "";
       dialog.showModal();
-    } else if (confirm(`Διαγραφή της εγγραφής;\n\n${f.dataset.confirm}`)) {
+    } else if (confirm(`${title}\n\n${f.dataset.confirm}`)) {
       f.submit();
     }
   });
 });
 
 // Ειδοποιήσεις: κουμπί κλεισίματος· οι επιτυχίες κλείνουν μόνες τους, τα σφάλματα μένουν μέχρι να τα κλείσεις
-document.querySelectorAll(".notice").forEach((notice) => {
+document.querySelectorAll(".notices .notice").forEach((notice) => {
   const close = el("button", "icon-btn");
   close.type = "button";
   close.setAttribute("aria-label", "Κλείσιμο");

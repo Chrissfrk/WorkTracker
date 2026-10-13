@@ -1,0 +1,41 @@
+{% extends "admin/_layout.html" %}
+{% from "_icons.html" import icon, chip %}
+{% from "admin/_macros.html" import page_header, pager, empty with context %}
+{% block title %}Δραστηριότητα · Διαχείριση{% endblock %}
+
+{% block admin_content %}
+{{ page_header('Δραστηριότητα', 'Συνδέσεις, ενέργειες διαχείρισης και σφάλματα · κρατούνται οι τελευταίες ' ~ keep ~ ' καταγραφές') }}
+
+<nav class="pills" aria-label="Φίλτρο">
+  {% for key, (label, _) in kinds.items() %}
+  <a class="pill" href="{{ url_for('admin.activity', kind=key or None) }}" {% if key == kind %}aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+
+<section class="card table-card">
+  {% if activity %}
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr><th scope="col">Πότε</th><th scope="col">Γεγονός</th><th scope="col">Από</th><th scope="col">Αφορά</th><th scope="col">Λεπτομέρειες</th></tr>
+      </thead>
+      <tbody>
+        {% for a in activity %}
+        {% set label, tone = actions.get(a.action, (a.action, 'blue')) %}
+        <tr>
+          <td class="secondary">{{ a.at|when }}</td>
+          <td class="cell-main"><span class="badge tone-{{ tone }}">{{ label }}</span></td>
+          <td data-label="Από">{% if a.actor_id and a.actor %}<a href="{{ url_for('admin.user_detail', user_id=a.actor_id) }}">{{ a.actor }}</a>{% else %}<span class="secondary">{{ a.actor or '—' }}</span>{% endif %}</td>
+          <td data-label="Αφορά">{{ a.target or '—' }}</td>
+          <td class="secondary wrap" data-label="Λεπτομέρειες">{{ a.detail or '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  {{ empty('pulse', 'Καμία καταγραφή', 'Δεν υπάρχουν γεγονότα σε αυτή την κατηγορία.') }}
+  {% endif %}
+</section>
+{{ pager(p) }}
+{% endblock %}

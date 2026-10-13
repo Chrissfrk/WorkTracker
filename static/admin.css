@@ -1,0 +1,361 @@
+/* Work Tracker — Διαχείριση
+   Φορτώνεται μόνο στις σελίδες διαχείρισης, πάνω από το style.css· χρησιμοποιεί τα ίδια tokens και components. */
+
+/* ===== Γραμμή πλοήγησης ===== */
+
+.brand { display: flex; align-items: center; gap: var(--space-2); }
+.admin-tag { background: var(--indigo-tint); color: var(--indigo-text); font-size: .75rem; padding: .125rem .5rem; }
+.account .btn-plain .icon { width: 1.125rem; height: 1.125rem; }
+
+/* ===== Διάταξη: πλαϊνό μενού (σαν τις Ρυθμίσεις) και περιεχόμενο ===== */
+
+.admin-shell {
+  display: grid;
+  grid-template-columns: 14.5rem minmax(0, 1fr);
+  gap: var(--space-8);
+  align-items: start;
+}
+.admin-main { display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
+
+.admin-nav {
+  position: sticky;
+  top: calc(var(--nav-h) + env(safe-area-inset-top) + var(--space-6));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-h);
+  padding: .375rem var(--space-3) .375rem .375rem;
+  border-radius: var(--radius-md);
+  color: var(--label);
+  font-size: .9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--dur-fast) ease-out, transform var(--dur) var(--ease-out);
+}
+.admin-nav-item .chip { width: 1.875rem; height: 1.875rem; border-radius: 8px; }
+.admin-nav-item .chip .icon { width: 1.0625rem; height: 1.0625rem; }
+@media (hover: hover) {
+  .admin-nav-item:hover { background: var(--fill-2); }
+}
+.admin-nav-item:active { background: var(--fill); transform: scale(.98); transition-duration: var(--dur-press); }
+.admin-nav-item[aria-current="page"] { background: var(--surface); box-shadow: var(--shadow-card); font-weight: 600; }
+
+.admin-header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.admin-header .secondary { margin-top: .25rem; font-size: .9375rem; }
+.admin-header-actions { display: flex; gap: var(--space-2); }
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: .125rem;
+  margin: 0 0 calc(-1 * var(--space-2)) -.375rem;
+  padding: .25rem .5rem .25rem .25rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .back-link:hover { background: var(--accent-tint); }
+}
+
+.admin-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr)); gap: var(--space-4); }
+a.stat { color: var(--label); text-decoration: none; transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) ease-out; }
+@media (hover: hover) {
+  a.stat:hover { box-shadow: var(--shadow-card), 0 0 0 1.5px var(--tone-tint); }
+}
+a.stat:active { transform: scale(.985); transition-duration: var(--dur-press); }
+
+.admin-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
+.admin-columns > .card, .admin-main > section.card:not(.table-card):not(.profile):not(.password-card) { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.admin-alerts { display: grid; gap: var(--space-2); }
+a.notice { color: var(--label); text-decoration: none; align-items: center; }
+a.notice > .icon:last-child { color: var(--label-3); }
+.notice-warning { background: linear-gradient(90deg, var(--orange-tint), var(--orange-tint)), var(--surface); }
+.notice-warning .notice-icon { color: var(--orange-text); }
+.notice:not(.notice-error):not(.notice-success):not(.notice-warning) .notice-icon { color: var(--accent-text); }
+
+/* ===== Σήματα ===== */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: .125rem .5625rem;
+  border-radius: var(--radius-pill);
+  background: var(--tone-tint);
+  color: var(--tone-text);
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+/* ===== Λίστες ===== */
+
+.feed, .list { margin: 0; padding: 0; list-style: none; }
+.feed-item { display: flex; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--separator); }
+.feed-item:first-child { border-top: 0; padding-top: 0; }
+.feed-dot { width: .5rem; height: .5rem; margin-top: .4375rem; flex: none; border-radius: 50%; background: var(--tone); }
+.feed-body { min-width: 0; font-size: .9375rem; overflow-wrap: anywhere; }
+.feed-body .footnote { margin-top: .125rem; }
+
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 3.25rem;
+  margin: 0 calc(-1 * var(--space-3));
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--label);
+  text-decoration: none;
+  transition: background-color var(--dur-fast) ease-out;
+}
+.list li + li .list-row, .list li.list-row + li.list-row { box-shadow: 0 -1px 0 var(--separator); }
+@media (hover: hover) {
+  a.list-row:hover { background: var(--row-hover); }
+}
+a.list-row:active { background: var(--accent-tint); transition-duration: var(--dur-press); }
+.list-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.list-main strong { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-chevron { color: var(--label-3); width: 1rem; height: 1rem; }
+
+/* ===== Φίλτρα ===== */
+
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-3); }
+.filters .field { flex: 0 1 auto; }
+.filters .filter-search { position: relative; flex: 1 1 14rem; }
+.filters select, .filters input { min-height: var(--control-h-sm); padding-top: .375rem; padding-bottom: .375rem; font-size: .9375rem; border-radius: 10px; }
+.filters .filter-search input { padding-left: 2.25rem; }
+.input-icon { position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); color: var(--label-3); pointer-events: none; }
+.input-icon .icon { width: 1.0625rem; height: 1.0625rem; }
+
+input[type=search], input[type=month] {
+  display: block;
+  width: 100%;
+  min-height: var(--control-h);
+  margin: 0;
+  padding: .625rem .875rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background-color: var(--fill-2);
+  color: var(--label);
+  font: inherit;
+  font-size: 1rem;
+  letter-spacing: -.011em;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background-color var(--dur-fast) ease-out, border-color var(--dur-fast) ease-out, box-shadow var(--dur-fast) ease-out;
+}
+input[type=search]::-webkit-search-decoration { -webkit-appearance: none; }
+
+.pills { display: flex; gap: var(--space-2); overflow-x: auto; scrollbar-width: none; padding: 2px; }
+.pills::-webkit-scrollbar { display: none; }
+.pill {
+  flex: none;
+  padding: .4375rem .9375rem;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  color: var(--label);
+  font-size: .9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color var(--dur-fast) ease-out, transform var(--dur) var(--ease-out);
+}
+@media (hover: hover) {
+  .pill:hover { background: var(--fill-hover); }
+}
+.pill:active { transform: scale(.96); transition-duration: var(--dur-press); }
+.pill[aria-current="page"] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+
+/* ===== Πίνακες ===== */
+
+.card.table-card { padding: 0; overflow: clip; }
+.table-scroll { overflow-x: auto; }
+.data-table td { height: 3.25rem; }
+.data-table .secondary { color: var(--label-2); }
+.data-table .wrap { white-space: normal; min-width: 12rem; }
+.data-table a { text-decoration: none; font-weight: 500; }
+.user-cell { display: inline-flex; align-items: center; gap: .625rem; color: var(--label); }
+.user-cell strong { font-weight: 600; }
+.user-cell .badge { margin-left: .125rem; }
+@media (hover: hover) {
+  tr:hover .user-cell strong { color: var(--accent-text); }
+}
+
+.pager { display: flex; align-items: center; justify-content: center; gap: var(--space-3); }
+
+/* ===== Χρήστης ===== */
+
+.avatar-lg { width: 4rem; height: 4rem; font-size: 1.625rem; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 8px 20px -8px var(--accent-glow); }
+.card.profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  background: radial-gradient(80% 120% at 0% 0%, var(--indigo-tint), transparent 60%), var(--surface);
+}
+.profile-main { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.profile-main .large-title { overflow-wrap: anywhere; }
+.profile-badges { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.profile-badges:empty { display: none; }
+.profile-meta { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); margin-top: var(--space-1); }
+.profile-meta dt { font-size: .75rem; color: var(--label-2); letter-spacing: 0; }
+.profile-meta dd { font-size: .9375rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.action-list { display: flex; flex-direction: column; }
+.action-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) 0; border-top: 1px solid var(--separator); }
+.action-row:first-child { border-top: 0; padding-top: 0; }
+.action-row:last-child { padding-bottom: 0; }
+.action-row .footnote { margin-top: .125rem; max-width: 34rem; }
+.action-row form { flex: none; }
+
+.card.danger-zone { background: radial-gradient(90% 100% at 0% 0%, var(--red-tint), transparent 60%), var(--surface); }
+.danger-form { display: flex; align-items: flex-end; gap: var(--space-3); flex-wrap: wrap; }
+.danger-form .field { flex: 1 1 16rem; }
+.danger-form .btn { min-height: var(--control-h); }
+
+/* ===== Ρυθμίσεις ===== */
+
+.settings-card { max-width: 40rem; }
+.settings-note { margin-top: calc(-1 * var(--space-2)); }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); cursor: pointer; }
+.switch-row > span { display: flex; flex-direction: column; gap: .125rem; }
+
+/* Διακόπτης iOS: ο δείκτης γλιστράει, το φόντο γίνεται πράσινο */
+.switch {
+  position: relative;
+  flex: none;
+  width: 3.1875rem;
+  height: 1.9375rem;
+  margin: 0;
+  border-radius: var(--radius-pill);
+  background: var(--fill-active);
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  transition: background-color var(--dur) ease-out;
+}
+.switch::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1.6875rem;
+  height: 1.6875rem;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .15), 0 3px 1px rgba(0, 0, 0, .06);
+  transition: transform var(--dur) var(--ease-out), width var(--dur-fast) ease-out;
+}
+.switch:checked { background: var(--green); }
+.switch:checked::before { transform: translateX(1.25rem); }
+.switch:active::before { width: 1.9375rem; }
+.switch:checked:active::before { transform: translateX(1rem); }
+
+.code-block {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--fill-2);
+  font: .875rem/1.6 var(--font-mono);
+  overflow-x: auto;
+}
+
+/* ===== Σύστημα ===== */
+
+.info-list { display: flex; flex-direction: column; }
+.info-list > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); padding: .6875rem 0; border-top: 1px solid var(--separator); }
+.info-list > div:first-child { border-top: 0; padding-top: 0; }
+.info-list > div:last-child { padding-bottom: 0; }
+.info-list dt { color: var(--label-2); font-size: .9375rem; }
+.info-list dd { font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+.info-list .info-meter { flex-wrap: wrap; row-gap: var(--space-2); }
+.info-meter .footnote { flex-basis: 100%; }
+
+.meter { display: block; flex-basis: 100%; height: .375rem; border-radius: var(--radius-pill); background: var(--fill); overflow: hidden; }
+.meter > span { display: block; width: var(--w); height: 100%; border-radius: inherit; background: var(--tone); }
+
+/* ===== Προσωρινός κωδικός ===== */
+
+.card.password-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 28rem;
+  margin: var(--space-8) auto 0;
+  padding: var(--space-8) var(--space-6) var(--space-6);
+  text-align: center;
+  background: radial-gradient(90% 50% at 50% 0%, var(--purple-tint), transparent 75%), var(--surface);
+}
+.password-card .chip { width: 2.75rem; height: 2.75rem; border-radius: 12px; }
+.secret {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  margin: var(--space-2) 0;
+  padding: .375rem .375rem .375rem var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--fill-2);
+}
+.secret code { flex: 1; font-size: 1.125rem; font-weight: 600; text-align: left; user-select: all; overflow-wrap: anywhere; }
+.password-card > .btn { width: 100%; }
+
+/* ===== Tablet ===== */
+
+@media (max-width: 1100px) {
+  .admin-shell { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+  .admin-nav {
+    position: static;
+    flex-direction: row;
+    gap: var(--space-1);
+    margin: 0 calc(-1 * var(--gutter));
+    padding: 2px var(--gutter);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .admin-nav::-webkit-scrollbar { display: none; }
+  .admin-nav-item { flex: none; padding-right: var(--space-4); }
+  .admin-columns { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ===== Κινητό ===== */
+
+@media (max-width: 720px) {
+  .admin-nav-item { gap: var(--space-2); font-size: .875rem; min-height: 2.5rem; }
+  .admin-nav-item .chip { width: 1.625rem; height: 1.625rem; border-radius: 7px; }
+  .admin-header .large-title { font-size: 1.75rem; }
+  .admin-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+  .admin-stats .stat-value { font-size: 1.375rem; }
+  .card.profile { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+  .action-row { flex-direction: column; align-items: stretch; }
+  .action-row .btn { width: 100%; }
+  .filters .field:not(.filter-search) { flex: 1 1 8rem; }
+  .filters > .btn { flex: 1 1 auto; }
+  .pager .btn span { display: none; }
+
+  /* Οι πίνακες γίνονται λίστα: κύριο κελί + ενέργειες στην πρώτη γραμμή, τα υπόλοιπα από κάτω με ετικέτα */
+  .data-table tbody tr { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .875rem; padding: var(--space-3) var(--space-4); }
+  .data-table tbody tr::before { content: ""; order: 2; flex-basis: 100%; height: 0; }
+  .data-table tbody tr::after { content: none; }
+  .data-table td { height: auto; }
+  .data-table .cell-main { order: 0; flex: 1; min-width: 0; }
+  .data-table .actions { order: 1; margin: -.375rem -.5rem -.375rem auto; }
+  .data-table td:not(.cell-main):not(.actions) { order: 3; font-size: .8125rem; }
+  .data-table td:not(.cell-main):not(.actions):empty { display: none; }
+  .data-table td[data-label]::before { content: attr(data-label) " "; color: var(--label-3); font-weight: 400; }
+  .data-table .wrap { min-width: 0; flex-basis: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-nav-item:active, a.stat:active, .pill:active { transform: none; }
+}

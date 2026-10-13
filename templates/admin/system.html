@@ -1,0 +1,79 @@
+{% extends "admin/_layout.html" %}
+{% from "_icons.html" import icon, chip %}
+{% from "admin/_macros.html" import page_header, empty with context %}
+{% block title %}Σύστημα · Διαχείριση{% endblock %}
+
+{% macro meter(value, total, tone) -%}
+{% set pct = [value / total * 100, 100]|min %}
+<span class="meter tone-{{ 'red' if pct > 85 else 'orange' if pct > 60 else tone }}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ pct|round(1) }}">
+  <span style="--w: {{ [pct, 1]|max }}%"></span>
+</span>
+{%- endmacro %}
+
+{% block admin_content %}
+{{ page_header('Σύστημα', 'Κατάσταση της εφαρμογής, χωρίς ευαίσθητα στοιχεία') }}
+
+<div class="admin-columns">
+  <section class="card" aria-labelledby="app-title">
+    <div class="card-header">
+      <div class="card-title">{{ chip('server', 'purple') }}<h2 class="title3" id="app-title">Εφαρμογή</h2></div>
+    </div>
+    <dl class="info-list">
+      <div><dt>Τελευταία ενημέρωση κώδικα</dt><dd>{{ info.deployed.strftime('%d/%m/%Y %H:%M') }}</dd></div>
+      <div><dt>Σε λειτουργία από την επανεκκίνηση</dt><dd>{{ info.uptime }}</dd></div>
+      <div><dt>Python</dt><dd>{{ info.python }}</dd></div>
+      <div><dt>Flask</dt><dd>{{ info.flask }}</dd></div>
+      <div><dt>pdfplumber</dt><dd>{{ info.pdfplumber }} · {{ 'φορτωμένο' if info.pdf_loaded else 'δεν έχει φορτωθεί' }}</dd></div>
+      <div><dt>SQLite</dt><dd>{{ info.sqlite }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="card" aria-labelledby="resources-title">
+    <div class="card-header">
+      <div class="card-title">{{ chip('gauge', 'teal') }}<h2 class="title3" id="resources-title">Πόροι</h2></div>
+    </div>
+    <dl class="info-list">
+      <div class="info-meter">
+        <dt>Μνήμη διεργασίας</dt>
+        {% if info.memory %}
+        <dd>{{ info.memory.rss|size }} <span class="secondary">· μέγιστη {{ info.memory.peak|size }}</span></dd>
+        {{ meter(info.memory.peak, 512 * 1024 * 1024, 'teal') }}
+        <p class="footnote secondary">Σε σχέση με στόχο 512 MB (όριο PythonAnywhere: 3 GB ανά διεργασία).</p>
+        {% else %}
+        <dd class="secondary">Διαθέσιμο μόνο στον server (Linux)</dd>
+        {% endif %}
+      </div>
+      <div class="info-meter">
+        <dt>Βάση δεδομένων</dt>
+        <dd>{{ info.db_size|size }} <span class="secondary">· {{ '%.1f'|format(info.db_share) }}% του χώρου δίσκου 512 MB</span></dd>
+        {{ meter(info.db_size, 512 * 1024 * 1024, 'teal') }}
+      </div>
+      <div><dt>Χρήστες</dt><dd>{{ counts.users }}</dd></div>
+      <div><dt>Καταγραφές δραστηριότητας</dt><dd>{{ counts.activity }} <span class="secondary">/ {{ keep }}</span></dd></div>
+    </dl>
+  </section>
+</div>
+
+<section class="card" id="errors" aria-labelledby="errors-title">
+  <div class="card-header">
+    <div class="card-title">{{ chip('alert-circle', 'red') }}<h2 class="title3" id="errors-title">Πρόσφατα σφάλματα</h2></div>
+    <span class="badge {{ 'tone-red' if error_count else 'tone-green' }}">{{ error_count }} τις τελευταίες 7 ημέρες</span>
+  </div>
+  {% if errors %}
+  <ul class="feed">
+    {% for e in errors %}
+    <li class="feed-item">
+      <span class="feed-dot tone-red" aria-hidden="true"></span>
+      <div class="feed-body">
+        <p><strong class="mono">{{ e.detail }}</strong> · {{ e.target }}</p>
+        <p class="footnote secondary">{{ e.at|when }}{% if e.actor %} · {{ e.actor }}{% endif %}</p>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="footnote secondary settings-note">Η πλήρης αναφορά κάθε σφάλματος βρίσκεται στο error log, στην καρτέλα Web του PythonAnywhere.</p>
+  {% else %}
+  {{ empty('check-circle', 'Κανένα σφάλμα', 'Η εφαρμογή λειτουργεί χωρίς προβλήματα.') }}
+  {% endif %}
+</section>
+{% endblock %}

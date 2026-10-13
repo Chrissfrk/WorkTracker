@@ -13,6 +13,7 @@
     <div class="account">
       <span class="avatar" aria-hidden="true">{{ current_user.username[:1]|upper }}</span>
       <span class="account-name">{{ current_user.username }}</span>
+      {% if current_user.is_admin %}<a class="btn btn-plain btn-sm" href="{{ url_for('admin.dashboard') }}">{{ icon('shield') }}<span class="account-admin">Διαχείριση</span></a>{% endif %}
       <a class="btn btn-plain btn-sm" href="{{ url_for('logout') }}">Έξοδος</a>
     </div>
   </div>
@@ -100,6 +101,7 @@
     <!-- Φόρμα Καταχώρισης / Επεξεργασίας -->
     <form method="post" id="entry-form" class="card entry stack{% if editing %} is-editing{% endif %}"
           action="{{ url_for('save_record', rec_id=editing.id) if editing else url_for('create_record') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="card-header">
         <div class="card-title">{{ chip('pencil' if editing else 'plus', 'indigo') }}<h2 class="title3">{{ 'Επεξεργασία Καταχώρισης' if editing else 'Νέα Καταχώριση' }}</h2></div>
         {% if editing %}<span class="tag">{{ 'Βάρδια' if editing.type == 'shift' else 'Transfer' }}</span>{% endif %}
@@ -151,6 +153,7 @@
         {{ icon('chevron-right', 'icon disclosure-chevron') }}
       </summary>
       <form method="post" action="{{ url_for('bulk_import') }}" class="disclosure-body stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <p class="footnote secondary">Μία εγγραφή ανά γραμμή. Γράψτε «edit» μπροστά για να αντικαταστήσετε τη βάρδια εκείνης της ημέρας.</p>
         <textarea name="text" rows="6" class="mono" aria-label="Εγγραφές, μία ανά γραμμή"
                   placeholder="π.χ.&#10;1/5 11-19&#10;edit 10/5 9:30-16&#10;15/5 transfer"></textarea>
@@ -168,6 +171,7 @@
         {{ icon('chevron-right', 'icon disclosure-chevron') }}
       </summary>
       <form method="post" action="{{ url_for('import_pdf') }}" enctype="multipart/form-data" class="disclosure-body stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <p class="footnote secondary">Μπορείτε να επιλέξετε πολλά αρχεία μαζί. Βάρδιες που υπάρχουν ήδη δεν προστίθενται ξανά.</p>
         <label class="dropzone" data-dropzone>
           <input type="file" name="pdf" accept="application/pdf,.pdf" multiple required class="dropzone-input">
@@ -227,6 +231,7 @@
             <a class="icon-btn" href="{{ url_for('index', edit=r.id) }}#entry-form" title="Επεξεργασία" aria-label="Επεξεργασία: {{ r.date }}">{{ icon('pencil') }}</a>
             <form method="post" action="{{ url_for('remove_record', rec_id=r.id) }}" class="delete-form"
                   data-confirm="{{ r.date }}  ·  {{ r.desc if r.type == 'shift' else 'Transfer' }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="icon-btn danger" title="Διαγραφή" aria-label="Διαγραφή: {{ r.date }}">{{ icon('trash') }}</button>
             </form>
           </td>

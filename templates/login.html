@@ -9,6 +9,7 @@
     <p class="secondary">Διαχείριση Ωρών & Ταμείου</p>
   </header>
   <form method="post" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="field">
       <label class="field-label" for="username">Όνομα χρήστη</label>
       <input type="text" id="username" name="username" value="{{ username or '' }}" required

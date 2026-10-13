@@ -1,0 +1,59 @@
+{% extends "admin/_layout.html" %}
+{% from "_icons.html" import icon, chip %}
+{% from "admin/_macros.html" import page_header with context %}
+{% block title %}Ρυθμίσεις · Διαχείριση{% endblock %}
+
+{% block admin_content %}
+{{ page_header('Ρυθμίσεις', 'Ισχύουν αμέσως, χωρίς επανεκκίνηση της εφαρμογής') }}
+
+<form method="post" class="card stack settings-card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="card-header">
+    <div class="card-title">{{ chip('people', 'orange') }}<h2 class="title3">Δημιουργία λογαριασμών</h2></div>
+  </div>
+
+  <label class="switch-row">
+    <span>
+      <span class="headline">Ανοιχτές εγγραφές</span>
+      <span class="footnote secondary">Όποιος έχει τον κωδικό πρόσκλησης μπορεί να φτιάξει λογαριασμό.</span>
+    </span>
+    <input type="checkbox" class="switch" name="registration" value="on" {% if invite.open %}checked{% endif %}>
+  </label>
+
+  <div class="field">
+    <label class="field-label" for="invite_code">Κωδικός πρόσκλησης</label>
+    <input type="text" id="invite_code" name="invite_code" value="{{ invite.stored_code }}" maxlength="64"
+           autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" class="mono"
+           pattern="\S{4,64}" aria-describedby="invite-hint">
+    <p class="field-hint" id="invite-hint">
+      {% if invite.from_env %}Από το αρχείο WSGI (INVITE_CODE). Αν τον αλλάξετε εδώ, η τιμή εδώ υπερισχύει.
+      {% elif not invite.stored_code %}Χωρίς κωδικό οι εγγραφές μένουν κλειστές.
+      {% else %}4–64 χαρακτήρες χωρίς κενά. Οι υπάρχοντες λογαριασμοί δεν επηρεάζονται.{% endif %}
+    </p>
+  </div>
+
+  {% if invite.open and not invite.stored_code %}
+  <div class="notice notice-warning">
+    {{ icon('alert-circle', 'icon notice-icon') }}
+    <div class="notice-text">Οι εγγραφές είναι ανοιχτές αλλά δεν υπάρχει κωδικός, οπότε κανείς δεν μπορεί να εγγραφεί.</div>
+  </div>
+  {% endif %}
+
+  <div class="btn-row">
+    <button type="submit" name="action" value="generate" class="btn btn-secondary">{{ icon('refresh') }}Νέος τυχαίος</button>
+    <button type="submit" name="action" value="save" class="btn btn-primary">Αποθήκευση</button>
+  </div>
+</form>
+
+<section class="card settings-card">
+  <div class="card-header">
+    <div class="card-title">{{ chip('shield', 'indigo') }}<h2 class="title3">Διαχειριστές</h2></div>
+  </div>
+  <p class="footnote secondary settings-note">
+    Για ασφάλεια, ο ρόλος διαχειριστή δίνεται και αφαιρείται μόνο από το Bash console του PythonAnywhere:
+  </p>
+  <pre class="code-block">cd ~/WorkTracker && workon worktracker
+flask --app app set-admin &lt;όνομα&gt;
+flask --app app set-admin &lt;όνομα&gt; --revoke</pre>
+</section>
+{% endblock %}

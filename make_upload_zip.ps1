@@ -6,7 +6,7 @@ param([switch]$WithDb)
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 
 $root = $PSScriptRoot
-$items = @("app.py", "core.py", "requirements.txt", "templates", "static")
+$items = @("app.py", "core.py", "admin.py", "requirements.txt", "templates", "static")
 if ($WithDb) { $items += "work_data.db" }
 
 $out = Join-Path $root "worktracker.zip"

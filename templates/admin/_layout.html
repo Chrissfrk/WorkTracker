@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, chip %}
+
+{% block head %}
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+{% endblock %}
+{% block main_class %}container admin{% endblock %}
+
+{% block navbar %}
+<header class="navbar" id="navbar">
+  <div class="navbar-inner">
+    <h1 class="brand">
+      <a href="{{ url_for('admin.dashboard') }}">
+        <img src="{{ url_for('static', filename='icon.svg') }}" alt="" width="28" height="28">
+        <span>Work Tracker</span>
+      </a>
+      <span class="tag admin-tag">Διαχείριση</span>
+    </h1>
+    <div class="account">
+      <a class="btn btn-plain btn-sm" href="{{ url_for('index') }}">{{ icon('arrow-left') }}<span class="account-admin">Εφαρμογή</span></a>
+      <span class="avatar" aria-hidden="true">{{ current_user.username[:1]|upper }}</span>
+      <span class="account-name">{{ current_user.username }}</span>
+    </div>
+  </div>
+</header>
+{% endblock %}
+
+{% block content %}
+{% set nav = [('dashboard', 'Επισκόπηση', 'gauge', 'indigo'),
+              ('users', 'Χρήστες', 'people', 'blue'),
+              ('activity', 'Δραστηριότητα', 'pulse', 'pink'),
+              ('settings', 'Ρυθμίσεις', 'sliders', 'orange'),
+              ('system', 'Σύστημα', 'server', 'purple')] %}
+<div class="admin-shell">
+  <nav class="admin-nav" aria-label="Ενότητες διαχείρισης">
+    {% for key, label, glyph, tone in nav %}
+    <a class="admin-nav-item" href="{{ url_for('admin.' ~ key) }}" {% if section == key %}aria-current="page"{% endif %}>
+      {{ chip(glyph, tone) }}<span>{{ label }}</span>
+    </a>
+    {% endfor %}
+  </nav>
+  <div class="admin-main">
+    {% block admin_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}
+
+{% block dialogs %}
+<dialog class="alert" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+  <form method="dialog">
+    {{ chip('alert-circle', 'red') }}
+    <h2 class="headline" id="confirm-title">Επιβεβαίωση</h2>
+    <p class="footnote secondary" id="confirm-message"></p>
+    <div class="alert-actions">
+      <button type="submit" value="cancel" class="btn btn-secondary" autofocus>Ακύρωση</button>
+      <button type="submit" value="confirm" class="btn btn-destructive">Συνέχεια</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='admin.js') }}"></script>{% endblock %}
